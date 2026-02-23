@@ -1,0 +1,4 @@
+name = "GPUHashTables"
+uuid = "e0502c36-3481-4190-93dc-a131af52b1a3"
+authors = ["Simone Carlo Surace <simsurace@gmx.net>"]
+version = "0.1.0"
