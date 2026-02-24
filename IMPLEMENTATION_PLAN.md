@@ -92,17 +92,17 @@ GPUHashTables/
 
 ## Implementation Phases
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✅
 
 #### 1.1 Project Setup
-- [ ] Add dependencies to Project.toml: `CUDA`, `Random`, `Test`, `BenchmarkTools`
-- [ ] Set up module structure with includes
-- [ ] Define exports
+- [x] Add dependencies to Project.toml: `CUDA`, `Random`, `Test`, `BenchmarkTools`
+- [x] Set up module structure with includes
+- [x] Define exports
 
 #### 1.2 Hash Function
-- [ ] Implement MurmurHash64A (matches warpSpeed for compatibility)
-- [ ] Create `double_hash(key) -> (h1::UInt32, h2::UInt32)` helper
-- [ ] Test against known test vectors
+- [x] Implement MurmurHash64A (matches warpSpeed for compatibility)
+- [x] Create `double_hash(key) -> (h1::UInt32, h2::UInt32)` helper
+- [x] Test against known test vectors
 
 ```julia
 # Target API
@@ -112,10 +112,10 @@ step = h2 % (n_buckets - 1) + 1  # Ensure non-zero step
 ```
 
 #### 1.3 Data Types
-- [ ] Define `Slot{K,V}` as immutable struct (key-value pair)
-- [ ] Define `Bucket{K,V}` with `BUCKET_SIZE` slots
-- [ ] Define `DoubleHashTable{K,V}` container
-- [ ] Ensure proper memory alignment (128-byte buckets)
+- [x] Define `Slot{K,V}` as immutable struct (key-value pair)
+- [x] Define `Bucket{K,V}` with `BUCKET_SIZE` slots
+- [x] Define `DoubleHashTable{K,V}` container
+- [x] Ensure proper memory alignment (128-byte buckets)
 
 ```julia
 struct Slot{K,V}
@@ -131,51 +131,51 @@ end
 # (8 slots × 8 bytes each)
 ```
 
-### Phase 2: CPU Reference Implementation
+### Phase 2: CPU Reference Implementation ✅
 
 #### 2.1 Table Construction
-- [ ] `CPUDoubleHashTable(keys, values; load_factor=0.7)` constructor
-- [ ] Compute appropriate bucket count from load factor
-- [ ] Insert all key-value pairs using double hashing
+- [x] `DoubleHashTable(keys, values; load_factor=0.7)` constructor
+- [x] Compute appropriate bucket count from load factor
+- [x] Insert all key-value pairs using double hashing
 
 ```julia
 # Target API
 keys = rand(UInt32, 1_000_000)
 vals = rand(UInt32, 1_000_000)
-table = CPUDoubleHashTable(keys, vals)
+table = DoubleHashTable(keys, vals)
 ```
 
 #### 2.2 CPU Query
-- [ ] `query(table, key) -> (found::Bool, value::V)`
-- [ ] `query!(table, keys, results)` batch query (mutates results array)
-- [ ] Implement probe sequence with MAX_PROBES limit (80)
+- [x] `query(table, key) -> (found::Bool, value::V)`
+- [x] `query!(results, found, table, keys)` batch query (mutates results array)
+- [x] Implement probe sequence with MAX_PROBES limit (80)
 
 #### 2.3 CPU Tests
-- [ ] Test empty table queries (all return not found)
-- [ ] Test single element insert/query
-- [ ] Test bulk insert with random keys
-- [ ] Test query for non-existent keys
-- [ ] Test at various load factors (50%, 70%, 90%)
-- [ ] Test probe sequence doesn't infinite loop
+- [x] Test empty table queries (all return not found)
+- [x] Test single element insert/query
+- [x] Test bulk insert with random keys
+- [x] Test query for non-existent keys
+- [x] Test at various load factors (50%, 70%, 90%)
+- [x] Test probe sequence doesn't infinite loop
 
-### Phase 3: GPU Implementation
+### Phase 3: GPU Implementation ✅
 
 #### 3.1 GPU Table Transfer
-- [ ] `GPUDoubleHashTable(cpu_table)` - transfer to GPU
-- [ ] Store buckets in `CuVector{Bucket{K,V}}`
-- [ ] Keep metadata (n_buckets, sentinels) accessible to kernels
+- [x] `GPUDoubleHashTable(cpu_table)` - transfer to GPU
+- [x] Store buckets in `CuVector{Bucket{K,V}}`
+- [x] Keep metadata (n_buckets, sentinels) accessible to kernels
 
 ```julia
 # Target API
-cpu_table = CPUDoubleHashTable(keys, vals)
+cpu_table = DoubleHashTable(keys, vals)
 gpu_table = GPUDoubleHashTable(cpu_table)
 ```
 
 #### 3.2 Warp Utilities
-- [ ] Define `TILE_SIZE = 8` (threads per query)
-- [ ] Helper: `tile_id()` - which tile this thread belongs to
-- [ ] Helper: `lane_in_tile()` - position within tile (0-7)
-- [ ] Helper: `tile_ballot(predicate)` - vote within tile
+- [x] Define `TILE_SIZE = 8` (threads per query)
+- [x] Helper: `tile_id()` - which tile this thread belongs to
+- [x] Helper: `tile_lane()` - position within tile (0-7)
+- [x] Helper: `tile_ballot(mask, predicate)` - vote within tile
 
 ```julia
 # Warp utility functions for kernels
@@ -192,11 +192,11 @@ end
 ```
 
 #### 3.3 Query Kernel
-- [ ] Implement `query_kernel!(results, found, table, keys)`
-- [ ] Each tile of 8 threads handles one query
-- [ ] Cooperative bucket loading (each thread loads one slot)
-- [ ] Ballot-based match/empty detection
-- [ ] Probe sequence iteration
+- [x] Implement `query_kernel!(results, found, buckets, n_buckets, keys, n_queries, empty_key)`
+- [x] Each tile of 8 threads handles one query
+- [x] Cooperative bucket loading (each thread loads one slot)
+- [x] Ballot-based match/empty detection
+- [x] Probe sequence iteration
 
 ```julia
 function query_kernel!(results, found, buckets, n_buckets, keys,
@@ -251,9 +251,9 @@ end
 ```
 
 #### 3.4 Query API
-- [ ] `query!(results, found, gpu_table, keys)` - batch GPU query
-- [ ] Handle kernel launch configuration (threads, blocks)
-- [ ] Synchronize and return
+- [x] `query!(results, found, gpu_table, keys)` - batch GPU query
+- [x] Handle kernel launch configuration (threads, blocks)
+- [x] Synchronize and return
 
 ```julia
 function query!(results::CuVector, found::CuVector{Bool},
@@ -273,18 +273,18 @@ end
 ```
 
 #### 3.5 GPU Tests
-- [ ] Compare GPU results against CPU reference for same inputs
-- [ ] Test with various query batch sizes (1K, 100K, 10M)
-- [ ] Test positive queries (key exists)
-- [ ] Test negative queries (key doesn't exist)
-- [ ] Test mixed positive/negative queries
+- [x] Compare GPU results against CPU reference for same inputs
+- [x] Test with various query batch sizes (1, 7, 32, 100, 1K, 10K)
+- [x] Test positive queries (key exists)
+- [x] Test negative queries (key doesn't exist)
+- [x] Test mixed positive/negative queries
 
-### Phase 4: Benchmarking
+### Phase 4: Benchmarking ✅
 
 #### 4.1 Query Throughput Benchmark
-- [ ] Measure queries/second at various table sizes (1M, 10M, 100M entries)
-- [ ] Measure at various load factors (50%, 70%, 90%)
-- [ ] Compare GPU vs CPU throughput
+- [x] Measure queries/second at various table sizes (100K, 1M, 10M, 50M entries)
+- [x] Measure at various load factors (50%, 60%, 70%, 80%, 90%)
+- [x] Compare GPU vs CPU throughput
 - [ ] Report bandwidth utilization
 
 ```julia
@@ -317,12 +317,12 @@ end
 ```
 
 #### 4.2 Scaling Benchmark
-- [ ] Throughput vs table size (fixed query count)
-- [ ] Throughput vs query count (fixed table size)
-- [ ] Throughput vs load factor
+- [x] Throughput vs table size (fixed query count)
+- [x] Throughput vs query count (fixed table size)
+- [x] Throughput vs load factor
 
 #### 4.3 Comparison Benchmark
-- [ ] Compare against Julia's CPU `Dict`
+- [x] Compare against CPU DoubleHashTable
 - [ ] Compare against simple linear probing GPU hash table
 - [ ] Document speedup factors
 
