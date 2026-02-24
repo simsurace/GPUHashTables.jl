@@ -1,7 +1,7 @@
 # CPU hash table construction
 
 """
-    DoubleHashTable(keys::Vector{K}, values::Vector{V}; load_factor=DEFAULT_LOAD_FACTOR) where {K,V}
+    CPUDoubleHT(keys::Vector{K}, values::Vector{V}; load_factor=DEFAULT_LOAD_FACTOR) where {K,V}
 
 Build a CPU double hashing hash table from key-value pairs.
 
@@ -11,16 +11,16 @@ Build a CPU double hashing hash table from key-value pairs.
 - `load_factor`: Target load factor (default: 0.7, max: 0.9)
 
 # Returns
-A `DoubleHashTable` ready for queries or transfer to GPU.
+A `CPUDoubleHT` ready for queries or transfer to GPU.
 
 # Example
 ```julia
 keys = rand(UInt32(1):UInt32(2^31), 1_000_000)
 vals = rand(UInt32, 1_000_000)
-table = DoubleHashTable(keys, vals)
+table = CPUDoubleHT(keys, vals)
 ```
 """
-function DoubleHashTable(
+function CPUDoubleHT(
     keys::Vector{K},
     values::Vector{V};
     load_factor::Float64=DEFAULT_LOAD_FACTOR,
@@ -51,7 +51,7 @@ function DoubleHashTable(
     buckets = fill(empty_bucket, n_buckets)
 
     # Insert all key-value pairs
-    table = DoubleHashTable{K,V}(buckets, n_buckets, 0, empty_key, empty_val)
+    table = CPUDoubleHT{K,V}(buckets, n_buckets, 0, empty_key, empty_val)
 
     for i in 1:n_entries
         success = insert_cpu!(table, keys[i], values[i])
@@ -64,12 +64,12 @@ function DoubleHashTable(
 end
 
 """
-    insert_cpu!(table::DoubleHashTable{K,V}, key::K, val::V) -> Bool
+    insert_cpu!(table::CPUDoubleHT{K,V}, key::K, val::V) -> Bool
 
 Insert a key-value pair into the CPU table using double hashing.
 Returns true on success, false if max probes exceeded.
 """
-function insert_cpu!(table::DoubleHashTable{K,V}, key::K, val::V)::Bool where {K,V}
+function insert_cpu!(table::CPUDoubleHT{K,V}, key::K, val::V)::Bool where {K,V}
     h1, h2 = double_hash(key)
 
     # Ensure step is non-zero and coprime-ish to n_buckets

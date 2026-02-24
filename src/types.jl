@@ -24,7 +24,7 @@ end
 const Bucket8{K,V} = Bucket{K,V,BUCKET_SIZE}
 
 """
-    DoubleHashTable{K,V}
+    CPUDoubleHT{K,V}
 
 CPU-side double hashing hash table. Used for building the table and as a
 reference implementation for testing.
@@ -36,28 +36,8 @@ reference implementation for testing.
 - `empty_key`: Sentinel value for empty key slots
 - `empty_val`: Sentinel value for empty value slots
 """
-mutable struct DoubleHashTable{K,V}
+mutable struct CPUDoubleHT{K,V}
     buckets::Vector{Bucket8{K,V}}
-    n_buckets::Int
-    n_entries::Int
-    empty_key::K
-    empty_val::V
-end
-
-"""
-    GPUDoubleHashTable{K,V}
-
-GPU-side double hashing hash table. Created by transferring a CPU table to GPU.
-
-# Fields
-- `buckets`: CuVector of buckets on GPU
-- `n_buckets`: Number of buckets
-- `n_entries`: Number of key-value pairs stored
-- `empty_key`: Sentinel value for empty key slots
-- `empty_val`: Sentinel value for empty value slots
-"""
-struct GPUDoubleHashTable{K,V}
-    buckets::CuVector{Bucket8{K,V}}
     n_buckets::Int
     n_entries::Int
     empty_key::K

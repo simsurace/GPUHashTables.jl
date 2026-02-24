@@ -1,19 +1,39 @@
 # GPU hash table wrapper and operations
 
 """
-    GPUDoubleHashTable(cpu_table::DoubleHashTable{K,V}) -> GPUDoubleHashTable{K,V}
+    CuDoubleHT{K,V}
+
+CUDA GPU-side double hashing hash table. Created by transferring a CPU table to GPU.
+
+# Fields
+- `buckets`: CuVector of buckets on GPU
+- `n_buckets`: Number of buckets
+- `n_entries`: Number of key-value pairs stored
+- `empty_key`: Sentinel value for empty key slots
+- `empty_val`: Sentinel value for empty value slots
+"""
+struct CuDoubleHT{K,V}
+    buckets::CuVector{Bucket8{K,V}}
+    n_buckets::Int
+    n_entries::Int
+    empty_key::K
+    empty_val::V
+end
+
+"""
+    CuDoubleHT(cpu_table::CPUDoubleHT{K,V}) -> CuDoubleHT{K,V}
 
 Transfer a CPU hash table to the GPU.
 
 # Example
 ```julia
-cpu_table = DoubleHashTable(keys, vals)
-gpu_table = GPUDoubleHashTable(cpu_table)
+cpu_table = CPUDoubleHT(keys, vals)
+gpu_table = CuDoubleHT(cpu_table)
 ```
 """
-function GPUDoubleHashTable(cpu_table::DoubleHashTable{K,V}) where {K,V}
+function CuDoubleHT(cpu_table::CPUDoubleHT{K,V}) where {K,V}
     gpu_buckets = CuVector(cpu_table.buckets)
-    return GPUDoubleHashTable{K,V}(
+    return CuDoubleHT{K,V}(
         gpu_buckets,
         cpu_table.n_buckets,
         cpu_table.n_entries,
@@ -23,7 +43,7 @@ function GPUDoubleHashTable(cpu_table::DoubleHashTable{K,V}) where {K,V}
 end
 
 """
-    query!(results::CuVector{V}, found::CuVector{Bool}, table::GPUDoubleHashTable{K,V}, keys::CuVector{K})
+    query!(results::CuVector{V}, found::CuVector{Bool}, table::CuDoubleHT{K,V}, keys::CuVector{K})
 
 Batch query keys on the GPU.
 
@@ -36,7 +56,7 @@ Batch query keys on the GPU.
 function query!(
     results::CuVector{V},
     found::CuVector{Bool},
-    table::GPUDoubleHashTable{K,V},
+    table::CuDoubleHT{K,V},
     keys::CuVector{K}
 ) where {K,V}
     n_queries = length(keys)
@@ -70,11 +90,11 @@ function query!(
 end
 
 """
-    query(table::GPUDoubleHashTable{K,V}, keys::CuVector{K}) -> (found::CuVector{Bool}, results::CuVector{V})
+    query(table::CuDoubleHT{K,V}, keys::CuVector{K}) -> (found::CuVector{Bool}, results::CuVector{V})
 
 Batch query keys on the GPU, allocating result vectors.
 """
-function query(table::GPUDoubleHashTable{K,V}, keys::CuVector{K}) where {K,V}
+function query(table::CuDoubleHT{K,V}, keys::CuVector{K}) where {K,V}
     n = length(keys)
     results = CUDA.zeros(V, n)
     found = CUDA.zeros(Bool, n)
@@ -83,12 +103,12 @@ function query(table::GPUDoubleHashTable{K,V}, keys::CuVector{K}) where {K,V}
 end
 
 """
-    query(table::GPUDoubleHashTable{K,V}, keys::Vector{K}) -> (found::Vector{Bool}, results::Vector{V})
+    query(table::CuDoubleHT{K,V}, keys::Vector{K}) -> (found::Vector{Bool}, results::Vector{V})
 
 Query GPU table with CPU keys, handling transfers automatically.
 Results are returned as CPU vectors.
 """
-function query(table::GPUDoubleHashTable{K,V}, keys::Vector{K}) where {K,V}
+function query(table::CuDoubleHT{K,V}, keys::Vector{K}) where {K,V}
     gpu_keys = CuVector(keys)
     found_gpu, results_gpu = query(table, gpu_keys)
     return (Vector(found_gpu), Vector(results_gpu))

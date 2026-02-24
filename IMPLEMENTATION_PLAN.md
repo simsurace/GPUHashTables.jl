@@ -22,7 +22,7 @@ Port of warpSpeed's DoubleHT dynamic hash table to Julia using CUDA.jl.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ DoubleHashTable{K,V}                                    │
+│ CPUDoubleHT{K,V}                                    │
 ├─────────────────────────────────────────────────────────┤
 │ buckets::CuVector{Bucket{K,V}}   # GPU bucket storage   │
 │ n_buckets::Int                   # Number of buckets    │
@@ -114,7 +114,7 @@ step = h2 % (n_buckets - 1) + 1  # Ensure non-zero step
 #### 1.3 Data Types
 - [x] Define `Slot{K,V}` as immutable struct (key-value pair)
 - [x] Define `Bucket{K,V}` with `BUCKET_SIZE` slots
-- [x] Define `DoubleHashTable{K,V}` container
+- [x] Define `CPUDoubleHT{K,V}` container
 - [x] Ensure proper memory alignment (128-byte buckets)
 
 ```julia
@@ -134,7 +134,7 @@ end
 ### Phase 2: CPU Reference Implementation ✅
 
 #### 2.1 Table Construction
-- [x] `DoubleHashTable(keys, values; load_factor=0.7)` constructor
+- [x] `CPUDoubleHT(keys, values; load_factor=0.7)` constructor
 - [x] Compute appropriate bucket count from load factor
 - [x] Insert all key-value pairs using double hashing
 
@@ -142,7 +142,7 @@ end
 # Target API
 keys = rand(UInt32, 1_000_000)
 vals = rand(UInt32, 1_000_000)
-table = DoubleHashTable(keys, vals)
+table = CPUDoubleHT(keys, vals)
 ```
 
 #### 2.2 CPU Query
@@ -161,14 +161,14 @@ table = DoubleHashTable(keys, vals)
 ### Phase 3: GPU Implementation ✅
 
 #### 3.1 GPU Table Transfer
-- [x] `GPUDoubleHashTable(cpu_table)` - transfer to GPU
+- [x] `CuDoubleHT(cpu_table)` - transfer to GPU
 - [x] Store buckets in `CuVector{Bucket{K,V}}`
 - [x] Keep metadata (n_buckets, sentinels) accessible to kernels
 
 ```julia
 # Target API
-cpu_table = DoubleHashTable(keys, vals)
-gpu_table = GPUDoubleHashTable(cpu_table)
+cpu_table = CPUDoubleHT(keys, vals)
+gpu_table = CuDoubleHT(cpu_table)
 ```
 
 #### 3.2 Warp Utilities
@@ -257,7 +257,7 @@ end
 
 ```julia
 function query!(results::CuVector, found::CuVector{Bool},
-                table::GPUDoubleHashTable, keys::CuVector)
+                table::CuDoubleHT, keys::CuVector)
     n_queries = length(keys)
     threads_per_block = 256  # Must be multiple of TILE_SIZE
     tiles_per_block = threads_per_block ÷ TILE_SIZE
@@ -293,8 +293,8 @@ function benchmark_query_throughput(n_entries, n_queries, load_factor)
     # Setup
     keys = rand(UInt32, n_entries)
     vals = rand(UInt32, n_entries)
-    cpu_table = CPUDoubleHashTable(keys, vals; load_factor)
-    gpu_table = GPUDoubleHashTable(cpu_table)
+    cpu_table = CPUCPUDoubleHT(keys, vals; load_factor)
+    gpu_table = CuDoubleHT(cpu_table)
 
     query_keys = keys[rand(1:n_entries, n_queries)]  # Positive queries
     gpu_keys = CuVector(query_keys)
@@ -322,7 +322,7 @@ end
 - [x] Throughput vs load factor
 
 #### 4.3 Comparison Benchmark
-- [x] Compare against CPU DoubleHashTable
+- [x] Compare against CPU CPUDoubleHT
 - [ ] Compare against simple linear probing GPU hash table
 - [ ] Document speedup factors
 

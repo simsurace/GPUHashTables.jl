@@ -1,6 +1,7 @@
 module GPUHashTables
 
 using CUDA
+using Metal
 
 # Constants
 const BUCKET_SIZE = 8      # Slots per bucket (matches tile size)
@@ -23,14 +24,29 @@ include("hash.jl")
 include("cpu/table.jl")
 include("cpu/operations.jl")
 
-# GPU implementation
-include("gpu/warp_utils.jl")
-include("gpu/kernels.jl")
-include("gpu/table.jl")
+# CUDA GPU implementation
+include("cuda/warp_utils.jl")
+include("cuda/kernels.jl")
+include("cuda/table.jl")
+
+# Metal GPU implementation
+include("metal/simd_utils.jl")
+include("metal/kernels.jl")
+include("metal/table.jl")
 
 # Exports
-export DoubleHashTable, GPUDoubleHashTable
-export build_table, query, query!
+export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
+export query, query!
 export double_hash
+
+# Runtime availability checks
+"""
+    has_metal() -> Bool
+
+Check if Metal is available and functional at runtime.
+"""
+has_metal() = Metal.functional()
+
+export has_cuda, has_metal
 
 end # module GPUHashTables

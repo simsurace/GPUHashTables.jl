@@ -1,7 +1,7 @@
 # CPU hash table query operations
 
 """
-    query(table::DoubleHashTable{K,V}, key::K) -> (found::Bool, value::V)
+    query(table::CPUDoubleHT{K,V}, key::K) -> (found::Bool, value::V)
 
 Query a single key in the CPU hash table.
 
@@ -9,7 +9,7 @@ Returns a tuple of (found, value) where:
 - `found`: true if key was found
 - `value`: the associated value if found, or empty_val if not found
 """
-function query(table::DoubleHashTable{K,V}, key::K)::Tuple{Bool,V} where {K,V}
+function query(table::CPUDoubleHT{K,V}, key::K)::Tuple{Bool,V} where {K,V}
     h1, h2 = double_hash(key)
 
     # Handle edge case where n_buckets == 1
@@ -47,7 +47,7 @@ function query(table::DoubleHashTable{K,V}, key::K)::Tuple{Bool,V} where {K,V}
 end
 
 """
-    query!(results::Vector{V}, found::Vector{Bool}, table::DoubleHashTable{K,V}, keys::Vector{K})
+    query!(results::Vector{V}, found::Vector{Bool}, table::CPUDoubleHT{K,V}, keys::Vector{K})
 
 Batch query multiple keys in the CPU hash table.
 
@@ -60,7 +60,7 @@ Batch query multiple keys in the CPU hash table.
 function query!(
     results::Vector{V},
     found::Vector{Bool},
-    table::DoubleHashTable{K,V},
+    table::CPUDoubleHT{K,V},
     keys::Vector{K}
 ) where {K,V}
     n = length(keys)
@@ -75,11 +75,11 @@ function query!(
 end
 
 """
-    query(table::DoubleHashTable{K,V}, keys::Vector{K}) -> (found::Vector{Bool}, results::Vector{V})
+    query(table::CPUDoubleHT{K,V}, keys::Vector{K}) -> (found::Vector{Bool}, results::Vector{V})
 
 Batch query multiple keys, allocating result vectors.
 """
-function query(table::DoubleHashTable{K,V}, keys::Vector{K})::Tuple{Vector{Bool},Vector{V}} where {K,V}
+function query(table::CPUDoubleHT{K,V}, keys::Vector{K})::Tuple{Vector{Bool},Vector{V}} where {K,V}
     n = length(keys)
     results = Vector{V}(undef, n)
     found = Vector{Bool}(undef, n)

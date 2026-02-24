@@ -3,7 +3,7 @@
         # Create table with single entry, then query for non-existent key
         keys = UInt32[1]
         vals = UInt32[100]
-        table = DoubleHashTable(keys, vals)
+        table = CPUDoubleHT(keys, vals)
 
         found, val = query(table, UInt32(999))
         @test found == false
@@ -12,7 +12,7 @@
     @testset "Single entry" begin
         keys = UInt32[42]
         vals = UInt32[123]
-        table = DoubleHashTable(keys, vals)
+        table = CPUDoubleHT(keys, vals)
 
         # Query existing key
         found, val = query(table, UInt32(42))
@@ -32,7 +32,7 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        table = DoubleHashTable(keys, vals)
+        table = CPUDoubleHT(keys, vals)
 
         # All inserted keys should be found with correct values
         for i in 1:min(n, 1000)  # Test subset for speed
@@ -49,7 +49,7 @@
         # Insert some keys
         inserted_keys = unique(rand(UInt32(1):UInt32(2^30), n * 2))[1:n]
         vals = rand(UInt32, n)
-        table = DoubleHashTable(inserted_keys, vals)
+        table = CPUDoubleHT(inserted_keys, vals)
 
         # Generate keys that weren't inserted (high range)
         query_keys = rand(UInt32(2^30 + 1):UInt32(2^31), 1000)
@@ -68,7 +68,7 @@
 
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
-        table = DoubleHashTable(keys, vals; load_factor=0.5)
+        table = CPUDoubleHT(keys, vals; load_factor=0.5)
 
         # Batch query all keys
         found_vec, result_vec = query(table, keys)
@@ -85,7 +85,7 @@
             keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
             vals = rand(UInt32, n)
 
-            table = DoubleHashTable(keys, vals; load_factor=load_factor)
+            table = CPUDoubleHT(keys, vals; load_factor=load_factor)
 
             # Verify all keys are findable
             found_vec, result_vec = query(table, keys)
@@ -99,7 +99,7 @@
         keys = UInt32[GPUHashTables.EMPTY_KEY_U32]
         vals = UInt32[100]
 
-        @test_throws ErrorException DoubleHashTable(keys, vals)
+        @test_throws ErrorException CPUDoubleHT(keys, vals)
     end
 
     @testset "Duplicate keys (update)" begin
@@ -107,7 +107,7 @@
         keys = UInt32[1, 2, 1]  # Key 1 appears twice
         vals = UInt32[100, 200, 300]
 
-        table = DoubleHashTable(keys, vals)
+        table = CPUDoubleHT(keys, vals)
 
         found, val = query(table, UInt32(1))
         @test found == true

@@ -6,8 +6,8 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Query same keys on both
         cpu_found, cpu_results = query(cpu_table, keys)
@@ -24,8 +24,8 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Query all keys
         cpu_found, cpu_results = query(cpu_table, keys)
@@ -43,8 +43,8 @@
         inserted_keys = unique(rand(UInt32(1):UInt32(2^30), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(inserted_keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(inserted_keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Query keys in high range (not inserted)
         query_keys = rand(UInt32(2^30 + 1):UInt32(2^31), 1000)
@@ -63,8 +63,8 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Mix of existing and non-existing keys
         existing_sample = keys[rand(1:n, 500)]
@@ -92,8 +92,8 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Test various batch sizes
         for batch_size in [1, 7, 32, 100, 1000, 10_000]
@@ -114,8 +114,8 @@
         keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
         vals = rand(UInt32, n)
 
-        cpu_table = DoubleHashTable(keys, vals)
-        gpu_table = GPUDoubleHashTable(cpu_table)
+        cpu_table = CPUDoubleHT(keys, vals)
+        gpu_table = CuDoubleHT(cpu_table)
 
         # Use GPU vectors directly
         gpu_keys = CuVector(keys)
@@ -136,8 +136,8 @@
             keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
             vals = rand(UInt32, n)
 
-            cpu_table = DoubleHashTable(keys, vals; load_factor=load_factor)
-            gpu_table = GPUDoubleHashTable(cpu_table)
+            cpu_table = CPUDoubleHT(keys, vals; load_factor=load_factor)
+            gpu_table = CuDoubleHT(cpu_table)
 
             cpu_found, cpu_results = query(cpu_table, keys)
             gpu_found, gpu_results = query(gpu_table, keys)
