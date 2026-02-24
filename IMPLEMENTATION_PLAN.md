@@ -326,25 +326,47 @@ end
 - [ ] Compare against simple linear probing GPU hash table
 - [ ] Document speedup factors
 
-### Phase 5: Future Extensions (Not in Initial Scope)
+### Phase 5: Metal Backend ✅
+
+#### 5.1 Metal Intrinsics
+- [x] Add `simd_ballot`, `simd_all`, `simd_any` to Metal.jl
+- [x] Add AIR intrinsic attributes to GPUCompiler.jl
+
+#### 5.2 Metal Implementation
+- [x] `MtlDoubleHT` GPU table type
+- [x] Metal-specific simd utilities (`metal_tile_ballot`)
+- [x] Metal query kernel
+- [x] Metal benchmarks
+
+### Phase 6: Future Extensions
 
 These are documented for future reference but not implemented in Phase 1:
 
-#### 5.1 GPU Insert Operations
-- [ ] Bitmap-based locking mechanism
-- [ ] `insert!(gpu_table, keys, values)` kernel
-- [ ] Handle concurrent insert conflicts
+#### 6.1 GPU Insert/Upsert Operations
+- [ ] Bitmap-based locking mechanism (one lock bit per bucket)
+- [ ] `atomicCAS` lock acquisition (CUDA) / `atomic_compare_exchange_weak` (Metal)
+- [ ] Warp-cooperative locking (tile leader acquires lock)
+- [ ] `upsert!(gpu_table, keys, values)` kernel - insert or update
+- [ ] `insert!(gpu_table, keys, values)` kernel - insert only
+- [ ] Handle concurrent insert conflicts with retry/backoff
+- [ ] `bulk_insert!` for initial GPU-native table construction
 
-#### 5.2 GPU Delete Operations
-- [ ] Tombstone sentinel value
+#### 6.2 GPU-Native Constructor
+- [ ] `CuDoubleHT(keys::CuVector, vals::CuVector)` - build directly on GPU
+- [ ] `MtlDoubleHT(keys::MtlVector, vals::MtlVector)` - build directly on GPU
+- [ ] Avoid CPU round-trip when data is already on GPU
+
+#### 6.3 GPU Delete Operations
+- [ ] Tombstone sentinel value (separate from empty)
 - [ ] `delete!(gpu_table, keys)` kernel
-- [ ] Tombstone-aware queries
+- [ ] Tombstone-aware queries (continue probing past tombstones)
 
-#### 5.3 Dynamic Resizing
-- [ ] Rehash when load factor exceeded
+#### 6.4 Dynamic Resizing
+- [ ] Host-triggered resize when load factor exceeded
+- [ ] Rehash to new bucket array on GPU
 - [ ] Incremental vs full rehash strategies
 
-#### 5.4 Extended Type Support
+#### 6.5 Extended Type Support
 - [ ] `UInt64` keys and values
 - [ ] Generic parametric types with size constraints
 - [ ] String keys via hashing
