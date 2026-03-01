@@ -131,7 +131,7 @@
     @testset "GPU load factors" begin
         Random.seed!(99999)
 
-        for load_factor in [0.5, 0.7, 0.9]
+        @testset for load_factor in [0.5, 0.7, 0.9]
             n = 10_000
             keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
             vals = rand(UInt32, n)

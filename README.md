@@ -123,34 +123,38 @@ query!(results, found, metal_table, metal_keys)
 
 ## Benchmarks
 
-### Metal (Apple M3 Pro)
+Metal benchmarks are with Apple M3 Pro, CUDA benchmarks are with an RTX2070.
+
+### Query Throughput
 
 Tested with 10M entries table, 10M query batch, load factor 0.7:
 
-| Metric | Performance |
-|--------|-------------|
-| Positive queries (all keys exist) | 390 M queries/sec |
-| Negative queries (no keys exist) | 376 M queries/sec |
-| Mixed queries (50/50) | 375 M queries/sec |
+| Metric | Metal | CUDA |
+|--------|-------------|-------------|
+| Positive queries (all keys exist) | 390 M  | 701.46 M |
+| Negative queries (no keys exist) | 376 M  | 582.96 M |
+| Mixed queries (50/50) | 375 M  | 634.29 M |
+
+### Query Scaling
 
 **Scaling with table size** (10M queries, load factor 0.7):
 
-| Table Size | Throughput |
-|------------|------------|
-| 100K | 390 M queries/sec |
-| 1M | 391 M queries/sec |
-| 10M | 390 M queries/sec |
-| 50M | 389 M queries/sec |
+| Table Size | Metal | CUDA |
+|------------|------------|------------|
+| 100K | 390 M | 1067.07 M |
+| 1M | 391 M | 709.03 M |
+| 10M | 390 M | 712.70 M |
+| 50M | 389 M | 722.84 M |
 
 **Scaling with load factor** (10M entries, 10M queries):
 
-| Load Factor | Throughput |
-|-------------|------------|
-| 0.5 | 394 M queries/sec |
-| 0.6 | 393 M queries/sec |
-| 0.7 | 391 M queries/sec |
-| 0.8 | 386 M queries/sec |
-| 0.9 | 376 M queries/sec |
+| Load Factor | Metal | CUDA |
+|-------------|------------|-----|
+| 0.5 | 394 M | 394 M | 711 M |
+| 0.6 | 393 M | 393 M | 698 M |
+| 0.7 | 391 M | 391 M | 684 M |
+| 0.8 | 386 M | 386 M | 666 M |
+| 0.9 | 376 M | 376 M | 576 M |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
@@ -158,6 +162,7 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 |---------|------------|---------|
 | CPU | 40 M queries/sec | 1.0x |
 | Metal (M3 Pro) | 388 M queries/sec | 9.6x |
+| CUDA (RTX 2070) | 584 M queries/sec | 14.6x |
 
 ### Running Benchmarks
 

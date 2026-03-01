@@ -129,7 +129,7 @@
     end
 
     @testset "Metal load factors" begin
-        for load_factor in [0.5, 0.7, 0.9]
+        @testset for load_factor in [0.5, 0.7, 0.9]
             Random.seed!(99999)  # Reset seed for each load factor for reproducibility
             n = 10_000
             keys = unique(rand(UInt32(1):UInt32(2^31), n * 2))[1:n]
