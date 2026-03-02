@@ -178,17 +178,19 @@ function upsert_kernel!(
     for probe in Int32(0):Int32(MAX_PROBES - 1)
         bucket_idx = (h1 + step * UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
 
-        # Lane 0 tries to acquire lock
-        lock_acquired = false
-        if lane == 0
-            lock_acquired = try_acquire_lock(locks, bucket_idx)
-        end
-
-        # Broadcast lock status to all lanes in tile
-        lock_ballot = tile_ballot(mask, lock_acquired)
-        if lock_ballot == UInt32(0)
-            # Lock not acquired, try next probe position
-            continue
+        # Spin-wait until we acquire the lock for this bucket.
+        # We must not skip to the next probe on lock contention: the query kernel
+        # stops probing as soon as it sees an empty slot, so every key must be
+        # stored at the earliest probe position that has room.
+        while true
+            lock_acquired = false
+            if lane == 0
+                lock_acquired = try_acquire_lock(locks, bucket_idx)
+            end
+            lock_ballot = tile_ballot(mask, lock_acquired)
+            if lock_ballot != UInt32(0)
+                break
+            end
         end
 
         # Lock acquired! Search bucket
@@ -205,11 +207,11 @@ function upsert_kernel!(
         if match_ballot != UInt32(0)
             winner = first_set_lane(match_ballot)
             if lane == winner
-                # Update value using atomic store to the slot
-                # We need to write to the bucket's slot
-                new_slot = Slot{K,V}(key, val)
-                new_slots = ntuple(i -> i == lane + 1 ? new_slot : bucket.slots[i], Val(BUCKET_SIZE))
-                buckets[bucket_idx] = Bucket8{K,V}(new_slots)
+                # Pack key+val into UInt64 (Slot layout: key at bytes 0-3, val at 4-7)
+                new_packed = (UInt64(val) << UInt64(32)) | UInt64(key)
+                # LLVMPtr + n adds n raw bytes (not n*sizeof(T)), so scale manually
+                sptr = reinterpret(Core.LLVMPtr{UInt64, 1}, pointer(buckets, bucket_idx)) + lane * Int32(8)
+                unsafe_store!(sptr, new_packed)
                 results[op_idx] = UInt8(2)  # Updated
             end
             # Release lock
@@ -223,9 +225,11 @@ function upsert_kernel!(
         if empty_ballot != UInt32(0)
             winner = first_set_lane(empty_ballot)
             if lane == winner
-                new_slot = Slot{K,V}(key, val)
-                new_slots = ntuple(i -> i == lane + 1 ? new_slot : bucket.slots[i], Val(BUCKET_SIZE))
-                buckets[bucket_idx] = Bucket8{K,V}(new_slots)
+                # Pack key+val into UInt64 (Slot layout: key at bytes 0-3, val at 4-7)
+                new_packed = (UInt64(val) << UInt64(32)) | UInt64(key)
+                # LLVMPtr + n adds n raw bytes (not n*sizeof(T)), so scale manually
+                sptr = reinterpret(Core.LLVMPtr{UInt64, 1}, pointer(buckets, bucket_idx)) + lane * Int32(8)
+                unsafe_store!(sptr, new_packed)
                 results[op_idx] = UInt8(1)  # Inserted
             end
             # Release lock
@@ -248,3 +252,4 @@ function upsert_kernel!(
 
     return nothing
 end
+

@@ -42,7 +42,7 @@ end
 
 Broadcast a value from src_lane to all threads in the warp.
 """
-@inline function hive_shfl(val::UInt32, src_lane::Int)
+@inline function hive_shfl(val::UInt32, src_lane::Int32)
     return shfl_sync(0xFFFFFFFF, val, src_lane)
 end
 
@@ -206,12 +206,8 @@ function hive_upsert_kernel!(
     for probe in Int32(0):Int32(HIVE_MAX_PROBES - 1)
         bucket_idx = (h + UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
 
-        # Lane 0 loads freemask and broadcasts to all lanes
-        local_freemask = UInt32(0)
-        if lane == 0
-            local_freemask = freemasks[bucket_idx]
-        end
-        freemask = hive_shfl(local_freemask, 0)
+        # All threads load freemask directly (same address = cache broadcast)
+        freemask = freemasks[bucket_idx]
 
         # All 32 threads load their pair
         bucket = buckets[bucket_idx]
@@ -231,7 +227,7 @@ function hive_upsert_kernel!(
                 # We need to get pointer to the specific slot
                 bucket_ptr = pointer(buckets, bucket_idx)
                 # The pairs are at offset 0 in the struct, each is 8 bytes
-                pair_ptr = reinterpret(Ptr{UInt64}, bucket_ptr) + lane
+                pair_ptr = reinterpret(Core.LLVMPtr{UInt64, 1}, bucket_ptr) + lane
                 old = CUDA.atomic_cas!(pair_ptr, pair, new_pair)
                 if old == pair
                     status[op_idx] = UPSERT_UPDATED
@@ -259,7 +255,7 @@ function hive_upsert_kernel!(
                 expected = is_tombstone ? HIVE_TOMBSTONE : HIVE_EMPTY_PAIR
 
                 bucket_ptr = pointer(buckets, bucket_idx)
-                pair_ptr = reinterpret(Ptr{UInt64}, bucket_ptr) + lane
+                pair_ptr = reinterpret(Core.LLVMPtr{UInt64, 1}, bucket_ptr) + lane
                 old = CUDA.atomic_cas!(pair_ptr, expected, new_pair)
 
                 if old == expected
@@ -347,7 +343,7 @@ function hive_delete_kernel!(
             winner = hive_first_set_lane(match_ballot)
             if lane == winner
                 bucket_ptr = pointer(buckets, bucket_idx)
-                pair_ptr = reinterpret(Ptr{UInt64}, bucket_ptr) + lane
+                pair_ptr = reinterpret(Core.LLVMPtr{UInt64, 1}, bucket_ptr) + lane
                 old = CUDA.atomic_cas!(pair_ptr, pair, HIVE_TOMBSTONE)
 
                 if old == pair
