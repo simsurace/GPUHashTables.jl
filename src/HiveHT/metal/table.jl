@@ -79,6 +79,47 @@ function MtlHiveHT{K,V}(
 end
 
 """
+    MtlHiveHT(cpu_table::CPUHiveHT{K,V}) -> MtlHiveHT{K,V}
+
+Transfer a CPU HiveHT table to Metal GPU without invoking the upsert kernel.
+The HiveBucket array is flattened into the flat-pair layout used by MtlHiveHT.
+
+# Example
+```julia
+cpu_table = CPUHiveHT(keys, vals)
+gpu_table = MtlHiveHT(cpu_table)
+found, results = query(gpu_table, keys)
+```
+"""
+function MtlHiveHT(cpu_table::CPUHiveHT{K,V}) where {K,V}
+    n_buckets = cpu_table.n_buckets
+    total_slots = n_buckets * HIVE_BUCKET_SIZE
+
+    # Flatten HiveBucket array into the 1-D pairs layout used by MtlHiveHT
+    cpu_pairs = Vector{UInt64}(undef, total_slots)
+    for b in 1:n_buckets
+        bucket = cpu_table.buckets[b]
+        base = (b - 1) * HIVE_BUCKET_SIZE
+        for s in 1:HIVE_BUCKET_SIZE
+            cpu_pairs[base + s] = bucket.pairs[s]
+        end
+    end
+
+    gpu_pairs = MtlVector(cpu_pairs)
+    gpu_locks = MtlVector(zeros(UInt32, total_slots))
+    gpu_freemasks = MtlVector(cpu_table.freemasks)
+
+    return MtlHiveHT{K,V}(
+        gpu_pairs,
+        gpu_locks,
+        gpu_freemasks,
+        n_buckets,
+        cpu_table.n_entries,
+        cpu_table.empty_key
+    )
+end
+
+"""
     MtlHiveHT(keys::Vector{K}, vals::Vector{V}; load_factor=0.7) -> MtlHiveHT{K,V}
 
 Create a Metal HiveHT table and populate it with the given key-value pairs.

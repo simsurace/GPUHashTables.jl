@@ -69,6 +69,31 @@ function CuHiveHT{K,V}(
 end
 
 """
+    CuHiveHT(cpu_table::CPUHiveHT{K,V}) -> CuHiveHT{K,V}
+
+Transfer a CPU HiveHT table to the GPU without invoking the upsert kernel.
+The bucket layout is identical, so the data is copied directly.
+
+# Example
+```julia
+cpu_table = CPUHiveHT(keys, vals)
+gpu_table = CuHiveHT(cpu_table)
+found, results = query(gpu_table, keys)
+```
+"""
+function CuHiveHT(cpu_table::CPUHiveHT{K,V}) where {K,V}
+    gpu_buckets = CuVector(cpu_table.buckets)
+    gpu_freemasks = CuVector(cpu_table.freemasks)
+    return CuHiveHT{K,V}(
+        gpu_buckets,
+        gpu_freemasks,
+        cpu_table.n_buckets,
+        cpu_table.n_entries,
+        cpu_table.empty_key
+    )
+end
+
+"""
     CuHiveHT(keys::Vector{K}, vals::Vector{V}; load_factor=0.7) -> CuHiveHT{K,V}
 
 Create a CUDA HiveHT table and populate it with the given key-value pairs.

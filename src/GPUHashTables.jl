@@ -52,6 +52,9 @@ include("DoubleHT/metal/table.jl")
 # HiveHT types and constants
 include("HiveHT/types.jl")
 
+# CPU HiveHT
+include("HiveHT/cpu/table.jl")
+
 # CUDA HiveHT
 include("HiveHT/cuda/kernels.jl")
 include("HiveHT/cuda/table.jl")
@@ -68,7 +71,7 @@ include("HiveHT/metal/table.jl")
 export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
 
 # HiveHT types
-export CuHiveHT, MtlHiveHT
+export CPUHiveHT, CuHiveHT, MtlHiveHT
 export HiveBucket
 
 # Operations (shared by both table types)
