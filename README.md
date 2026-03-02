@@ -129,50 +129,52 @@ Metal benchmarks are with Apple M3 Pro, CUDA benchmarks are with an RTX 2070.
 
 Tested with 10M entries table, 10M query batch, load factor 0.7:
 
-| Metric | `MtlDoubleHT` | `CuDoubleHT` | `CuHiveHT` |
-|--------|--------------|-------------|-----------|
-| Positive queries (all keys exist) | 98.1 M | 767 M | 29.6 M |
-| Negative queries (no keys exist) | 98.7 M | 613 M | 31.7 M |
-| Mixed queries (50/50) | 98.3 M | 512 M | 32.0 M |
+| Metric                            | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|-----------------------------------|---------------|--------------|-------------|------------|
+| Positive queries (all keys exist) | 98.1 M        | 651 M        |             | 29.6 M     |
+| Negative queries (no keys exist)  | 98.7 M        | 636 M        |             | 31.7 M     |
+| Mixed queries (50/50)             | 98.3 M        | 660 M        |             | 32.0 M     |
 
 ### Query Scaling
 
 **Scaling with table size** (10M queries, load factor 0.7):
 
-| Table Size | `MtlDoubleHT` | `CuDoubleHT` | `CuHiveHT` |
-|------------|--------------|-------------|-----------|
-| 100K | 98.1 M | 1069 M | 33.0 M |
-| 1M | 97.8 M | 859 M | 30.8 M |
-| 10M | 98.1 M | 784 M | 31.4 M |
-| 50M | 98.0 M | 783 M | 32.5 M |
+| Table Size | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|------------|---------------|--------------|-------------|------------|
+| 100K       | 98.1 M        | 1110 M       |             | 33.0 M     |
+| 1M         | 97.8 M        | 820 M        |             | 30.8 M     |
+| 10M        | 98.1 M        | 804 M        |             | 31.4 M     |
+| 50M        | 98.0 M        | 800 M        |             | 32.5 M     |
 
 **Scaling with load factor** (10M entries, 10M queries):
 
-| Load Factor | `MtlDoubleHT` | `CuDoubleHT` | `CuHiveHT` |
-|-------------|--------------|-------------|-----------|
-| 0.5 | 98.1 M | 806 M | 32.4 M |
-| 0.6 | 98.1 M | 813 M | 31.7 M |
-| 0.7 | 97.5 M | 734 M | 32.5 M |
-| 0.8 | 97.4 M | 624 M | 31.3 M |
-| 0.9 | 97.6 M | 648 M | 30.9 M |
+| Load Factor | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|-------------|---------------|--------------|-------------|------------|
+| 0.6         | 98.1 M        | 837 M        |             | 32.4 M     |
+| 0.5         | 98.1 M        | 855 M        |             | 31.7 M     |
+| 0.7         | 97.5 M        | 644 M        |             | 32.5 M     |
+| 0.8         | 97.4 M        | 748 M        |             | 31.3 M     |
+| 0.9         | 97.6 M        | 658 M        |             | 30.9 M     |
 
 **Scaling with query batch size** (10M entries, load_factor=0.7):
 
-| Batch Size | `MtlDoubleHT` | `CuDoubleHT` | `CuHiveHT` |
-|------------|--------------|-------------|-----------|
-| 10K | 36.8 M | 402 M | 30.6 M |
-| 100K | 98.9 M | 729 M | 31.7 M |
-| 1M | 106 M | 739 M | 29.8 M |
-| 10M | 98.1 M | 775 M | 29.4 M |
+| Batch Size | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|------------|---------------|--------------|-------------|------------|
+| 10K        | 36.8 M        | 464 M        |             | 30.6 M     |
+| 100K       | 98.9 M        | 742 M        |             | 31.7 M     |
+| 1M         | 106 M         | 606 M        |             | 29.8 M     |
+| 10M        | 98.1 M        | 773 M        |             | 29.4 M     |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
-| Backend | Queries/Sec | Speedup |
-|---------|------------|---------|
-| CPU (`CPUDoubleHT`) | 21.0 M | 1.0x |
-| `MtlDoubleHT` (M3 Pro) | 107 M | 5.1x |
-| `CuDoubleHT` (RTX 2070) | 615 M | 29x |
-| `CuHiveHT` (RTX 2070) | 26.7 M | 1.3x |
+| Backend                 | Queries/Sec | Speedup |
+|-------------------------|-------------|---------|
+| `CPUDoubleHT` (M3 Pro)  | 40.6 M      | 1.0x    |
+| `MtlDoubleHT` (M3 Pro)  | 107 M       | 2.6x    |
+| `CuDoubleHT` (RTX 2070) | 878 M       | 22x     |
+| `CPUHiveHT` (M3 Pro)    |             |         |
+| `MtlHiveHT` (M3 Pro)    |             |         |
+| `CuHiveHT` (RTX 2070)   | 26.7 M      | 1.3x    |
 
 ### Running Benchmarks
 
