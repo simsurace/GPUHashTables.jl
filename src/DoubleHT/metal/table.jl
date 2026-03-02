@@ -1,8 +1,3 @@
-# Metal GPU hash table wrapper and operations
-# Metal uses 32-slot buckets with full simdgroup (32 threads) per tile
-
-using Metal: MtlVector, MtlDeviceVector, @metal, Metal
-
 """
     MtlDoubleHT{K,V}
 

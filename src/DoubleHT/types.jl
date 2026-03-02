@@ -31,24 +31,3 @@ const Bucket8{K,V} = Bucket{K,V,BUCKET_SIZE}
 const METAL_BUCKET_SIZE = 32
 const METAL_TILE_SIZE = 32  # Full simdgroup as a tile
 const Bucket32{K,V} = Bucket{K,V,METAL_BUCKET_SIZE}
-
-"""
-    CPUDoubleHT{K,V}
-
-CPU-side double hashing hash table. Used for building the table and as a
-reference implementation for testing.
-
-# Fields
-- `buckets`: Vector of buckets
-- `n_buckets`: Number of buckets
-- `n_entries`: Number of key-value pairs stored
-- `empty_key`: Sentinel value for empty key slots
-- `empty_val`: Sentinel value for empty value slots
-"""
-mutable struct CPUDoubleHT{K,V}
-    buckets::Vector{Bucket8{K,V}}
-    n_buckets::Int
-    n_entries::Int
-    empty_key::K
-    empty_val::V
-end

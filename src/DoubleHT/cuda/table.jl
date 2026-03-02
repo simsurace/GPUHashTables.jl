@@ -1,10 +1,3 @@
-# GPU hash table wrapper and operations
-
-# Upsert result codes
-const UPSERT_FAILED = UInt8(0)
-const UPSERT_INSERTED = UInt8(1)
-const UPSERT_UPDATED = UInt8(2)
-
 """
     CuDoubleHT{K,V}
 

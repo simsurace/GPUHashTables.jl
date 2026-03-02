@@ -3,7 +3,9 @@ module GPUHashTables
 using CUDA
 using Metal
 
-# Constants
+# =============================================================================
+# DoubleHT Constants
+# =============================================================================
 const BUCKET_SIZE = 8      # Slots per bucket (matches tile size)
 const TILE_SIZE = 8        # Threads per cooperative tile
 const MAX_PROBES = 80      # Maximum probe attempts
@@ -14,33 +16,76 @@ const MAX_LOAD_FACTOR = 0.9
 const EMPTY_KEY_U32 = typemax(UInt32)
 const EMPTY_VAL_U32 = typemax(UInt32)
 
+# Upsert result codes
+const UPSERT_FAILED = UInt8(0)
+const UPSERT_INSERTED = UInt8(1)
+const UPSERT_UPDATED = UInt8(2)
+
+# =============================================================================
+# DoubleHT Implementation
+# =============================================================================
+
 # Core types
-include("types.jl")
+include("DoubleHT/types.jl")
 
 # Hash functions
-include("hash.jl")
+include("DoubleHT/hash.jl")
 
 # CPU implementation
-include("cpu/table.jl")
-include("cpu/operations.jl")
+include("DoubleHT/cpu/table.jl")
+include("DoubleHT/cpu/operations.jl")
 
 # CUDA GPU implementation
-include("cuda/warp_utils.jl")
-include("cuda/kernels.jl")
-include("cuda/table.jl")
+include("DoubleHT/cuda/warp_utils.jl")
+include("DoubleHT/cuda/kernels.jl")
+include("DoubleHT/cuda/table.jl")
 
 # Metal GPU implementation
-include("metal/simd_utils.jl")
-include("metal/kernels.jl")
-include("metal/table.jl")
+include("DoubleHT/metal/simd_utils.jl")
+include("DoubleHT/metal/kernels.jl")
+include("DoubleHT/metal/table.jl")
 
+# =============================================================================
+# HiveHT Implementation
+# =============================================================================
+
+# HiveHT types and constants
+include("HiveHT/types.jl")
+
+# CUDA HiveHT
+include("HiveHT/cuda/kernels.jl")
+include("HiveHT/cuda/table.jl")
+
+# Metal HiveHT
+include("HiveHT/metal/kernels.jl")
+include("HiveHT/metal/table.jl")
+
+# =============================================================================
 # Exports
+# =============================================================================
+
+# DoubleHT types
 export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
 export CuMutableDoubleHT, MtlMutableDoubleHT
+
+# HiveHT types
+export CuHiveHT, MtlHiveHT
+export HiveBucket
+
+# Operations (shared by both table types)
 export query, query!
 export upsert!
+
+# Hash functions
 export double_hash
+
+# Status codes
 export UPSERT_FAILED, UPSERT_INSERTED, UPSERT_UPDATED
+export DELETE_FAILED, DELETE_SUCCESS
+
+# HiveHT utilities
+export pack_pair, unpack_key, unpack_val
+export HIVE_EMPTY_PAIR, HIVE_TOMBSTONE
 
 # Runtime availability checks
 """

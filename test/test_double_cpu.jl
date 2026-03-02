@@ -1,4 +1,4 @@
-@testset "CPU Hash Table" begin
+@testset "CPU DoubleHT" begin
     @testset "Empty table" begin
         # Create table with single entry, then query for non-existent key
         keys = UInt32[1]

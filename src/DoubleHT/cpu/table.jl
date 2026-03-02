@@ -1,4 +1,23 @@
-# CPU hash table construction
+"""
+    CPUDoubleHT{K,V}
+
+CPU-side double hashing hash table. Used for building the table and as a
+reference implementation for testing.
+
+# Fields
+- `buckets`: Vector of buckets
+- `n_buckets`: Number of buckets
+- `n_entries`: Number of key-value pairs stored
+- `empty_key`: Sentinel value for empty key slots
+- `empty_val`: Sentinel value for empty value slots
+"""
+mutable struct CPUDoubleHT{K,V}
+    buckets::Vector{Bucket8{K,V}}
+    n_buckets::Int
+    n_entries::Int
+    empty_key::K
+    empty_val::V
+end
 
 """
     CPUDoubleHT(keys::Vector{K}, values::Vector{V}; load_factor=DEFAULT_LOAD_FACTOR) where {K,V}

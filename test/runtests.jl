@@ -2,25 +2,28 @@ using Test
 using GPUHashTables
 using Random
 
-# Check GPU backend availability
 using CUDA
 using Metal
-const HAS_CUDA = CUDA.functional()
-const HAS_METAL = Metal.functional()
 
 @testset "GPUHashTables" begin
     include("test_hash.jl")
-    include("test_cpu.jl")
+    include("test_double_cpu.jl")
 
-    if HAS_CUDA
-        include("test_cuda.jl")
+    if CUDA.functional()
+        @testset "CUDA" begin
+            include("test_double_cuda.jl")
+            include("test_hive_cuda.jl")
+        end
     else
         @warn "CUDA not available - skipping CUDA GPU tests"
     end
 
-    if HAS_METAL
+    if Metal.functional()
         using Metal: MtlVector
-        include("test_metal.jl")
+        @testset "Metal" begin
+            include("test_double_metal.jl")
+            include("test_hive_metal.jl")
+        end
     else
         @warn "Metal not available - skipping Metal GPU tests"
     end
