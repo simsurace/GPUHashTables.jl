@@ -183,39 +183,21 @@ function query!(
         return nothing
     end
 
-    # Configure kernel launch - use sub-batching for consistency
-    threads_per_group = 32  # 1 simdgroup per group
-    max_groups_per_launch = 128
+    # Queries are completely lock-free (read-only), so no sub-batching needed.
+    # Unlike upsert!, there are no write visibility concerns.
+    threads_per_group = 32  # 1 simdgroup per group, each group handles one query
+    n_groups = n_queries
 
-    cpu_keys = Vector(keys)
-    cpu_results = Vector(results)
-    cpu_found = Vector(found)
+    @metal threads=threads_per_group groups=n_groups metal_hive_query_kernel!(
+        results,
+        found,
+        table.pairs,
+        Int32(table.n_buckets),
+        keys,
+        Int32(n_queries)
+    )
 
-    for batch_start in 1:max_groups_per_launch:n_queries
-        batch_end = min(batch_start + max_groups_per_launch - 1, n_queries)
-        batch_n = batch_end - batch_start + 1
-
-        batch_keys = MtlVector(cpu_keys[batch_start:batch_end])
-        batch_results = MtlVector(zeros(V, batch_n))
-        batch_found = MtlVector(zeros(Bool, batch_n))
-
-        @metal threads=threads_per_group groups=batch_n metal_hive_query_kernel!(
-            batch_results,
-            batch_found,
-            table.pairs,
-            Int32(table.n_buckets),
-            batch_keys,
-            Int32(batch_n)
-        )
-        Metal.synchronize()
-
-        cpu_results[batch_start:batch_end] = Vector(batch_results)
-        cpu_found[batch_start:batch_end] = Vector(batch_found)
-    end
-
-    copyto!(results, MtlVector(cpu_results))
-    copyto!(found, MtlVector(cpu_found))
-
+    Metal.synchronize()
     return nothing
 end
 
