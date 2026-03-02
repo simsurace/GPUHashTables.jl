@@ -1,47 +1,53 @@
 # SIMD-group utilities for Metal kernels
 # Metal uses simdgroups (32 threads) similar to CUDA warps
+#
+# Key design choice for Metal:
+# - TILE_SIZE = SIMDGROUP_SIZE = 32 (full simdgroup per tile)
+# - BUCKET_SIZE = 32 (all threads check slots)
+# This avoids intra-simdgroup deadlock that occurs when smaller tiles compete
 
 using Metal: thread_position_in_threadgroup, threadgroup_position_in_grid,
-             threads_per_threadgroup, simd_ballot
+             threads_per_threadgroup, simd_ballot, simdgroup_barrier, threadgroup_barrier, MemoryFlagDevice
+
+# Metal simdgroup size - this is also our tile size
+const SIMDGROUP_SIZE = 32
+
+# =============================================================================
+# Primary tile utilities for Metal (tile == simdgroup, 32 threads)
+# All kernels (query and upsert) use these functions
+# =============================================================================
 
 """
     metal_tile_id() -> Int
 
 Get the tile ID for the current thread (1-indexed).
-Each tile handles one query.
+Each tile is a full simdgroup (32 threads) and handles one operation.
 """
 @inline function metal_tile_id()
     thread_id = thread_position_in_threadgroup().x +
                 (threadgroup_position_in_grid().x - 1) * threads_per_threadgroup().x
-    return (thread_id - 1) ÷ TILE_SIZE + 1
+    return (thread_id - 1) ÷ SIMDGROUP_SIZE + 1
 end
 
 """
     metal_tile_lane() -> Int
 
-Get the lane (position) within the tile for the current thread (0-indexed, 0 to TILE_SIZE-1).
-Each lane loads one slot from the bucket.
+Get the lane (position) within the tile for the current thread (0-indexed, 0 to 31).
+Each lane loads one slot from the 32-slot bucket.
 """
 @inline function metal_tile_lane()
-    return (thread_position_in_threadgroup().x - 1) % TILE_SIZE
+    return (thread_position_in_threadgroup().x - 1) % SIMDGROUP_SIZE
 end
 
 """
     metal_tile_ballot(predicate::Bool) -> UInt32
 
-Perform ballot vote within the tile, returning only tile-relevant bits.
-Result is shifted so bit 0 corresponds to lane 0 of the tile.
-
-Uses Metal's simd_ballot which returns UInt64 (we take lower 32 bits and mask to tile).
+Perform ballot vote across the full simdgroup (tile).
+Returns lower 32 bits of the ballot - one bit per thread/lane.
 """
 @inline function metal_tile_ballot(predicate::Bool)
-    # simd_ballot returns UInt64 with bit i set if thread i's predicate is true
     full_ballot = simd_ballot(predicate)
-    # Calculate which tile within the simdgroup (32 threads)
-    simd_lane = (thread_position_in_threadgroup().x - 1) % 32
-    tile_in_simd = simd_lane ÷ TILE_SIZE
-    # Shift and mask to get just this tile's 8 bits
-    return UInt32((full_ballot >> (tile_in_simd * TILE_SIZE)) & 0xFF)
+    return UInt32(full_ballot & 0xFFFFFFFF)
 end
 
 """
@@ -55,4 +61,19 @@ Returns -1 if no bits are set.
         return -1
     end
     return trailing_zeros(ballot)
+end
+
+"""
+    metal_tile_sync()
+
+Synchronize all threads in the tile (simdgroup) with device memory fence.
+Use this after writes to ensure visibility before releasing locks.
+
+Note: We use threadgroup_barrier instead of simdgroup_barrier for stronger
+memory ordering guarantees. This ensures writes to device memory are visible
+across the entire threadgroup, not just within a simdgroup.
+"""
+@inline function metal_tile_sync()
+    threadgroup_barrier(MemoryFlagDevice)
+    return nothing
 end

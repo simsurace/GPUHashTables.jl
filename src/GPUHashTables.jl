@@ -36,8 +36,11 @@ include("metal/table.jl")
 
 # Exports
 export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
+export CuMutableDoubleHT, MtlMutableDoubleHT
 export query, query!
+export upsert!
 export double_hash
+export UPSERT_FAILED, UPSERT_INSERTED, UPSERT_UPDATED
 
 # Runtime availability checks
 """
