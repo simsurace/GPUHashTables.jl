@@ -4,7 +4,7 @@ A library of hash table implementations in pure Julia, supporting both NVIDIA GP
 
 >[!WARNING]
 >The implementations in this package are to be considered highly experimental.
->In particular, since most research papers on GPU hash tables is being conducted in CUDA, porting them to Metal is a best-effort endeavour with unclear odds of being successful.
+>In particular, since most research on GPU hash tables is being conducted in CUDA, porting them to Metal is a best-effort endeavour with unclear odds of being successful.
 
 ## Installation
 
