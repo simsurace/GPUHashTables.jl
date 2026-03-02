@@ -108,12 +108,15 @@ function benchmark_metal_query(
 end
 
 """
-    benchmark_cpu_query(n_entries, n_queries, load_factor; n_iterations)
+    benchmark_cpu_query(build_fn, n_entries, n_queries, load_factor; n_iterations)
 
-Benchmark CPU DoubleHT query throughput for comparison.
+Benchmark CPU query throughput for any table type.
+
+`build_fn(keys, vals, load_factor)` must return a CPU table that supports `query!`.
 Returns queries per second.
 """
 function benchmark_cpu_query(
+    build_fn,
     n_entries::Int,
     n_queries::Int,
     load_factor::Float64;
@@ -123,7 +126,7 @@ function benchmark_cpu_query(
 
     keys = unique(rand(UInt32(1):UInt32(2^31 - 1), n_entries * 2))[1:n_entries]
     vals = rand(UInt32, n_entries)
-    cpu_table = CPUDoubleHT(keys, vals; load_factor=load_factor)
+    cpu_table = build_fn(keys, vals, load_factor)
 
     query_keys = keys[rand(1:n_entries, n_queries)]
     results = Vector{UInt32}(undef, n_queries)
@@ -146,6 +149,9 @@ end
 # =============================================================================
 # Table builders
 # =============================================================================
+
+cpu_double_builder(keys, vals, lf) = CPUDoubleHT(keys, vals; load_factor=lf)
+cpu_hive_builder(keys, vals, lf)   = CPUHiveHT(keys, vals; load_factor=lf)
 
 cu_double_builder(keys, vals, lf) = CuDoubleHT(CPUDoubleHT(keys, vals; load_factor=lf))
 cu_hive_builder(keys, vals, lf)   = CuHiveHT(CPUHiveHT(keys, vals; load_factor=lf))
@@ -226,20 +232,22 @@ function run_comparison_benchmark(; use_cuda::Bool=false, use_metal::Bool=false)
     println("Query batch: $(n_queries ÷ 1_000_000)M queries")
     println()
 
-    cpu_qps = benchmark_cpu_query(n_entries, n_queries, load_factor)
-    @printf("CPU (DoubleHT):      %8.2f M queries/sec\n", cpu_qps / 1e6)
-
-    if use_cuda
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor)
-        @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_qps)
-        @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_qps)
-    end
+    cpu_double_qps = benchmark_cpu_query(cpu_double_builder, n_entries, n_queries, load_factor)
+    cpu_hive_qps   = benchmark_cpu_query(cpu_hive_builder,   n_entries, n_queries, load_factor)
+    @printf("CPU (DoubleHT):      %8.2f M queries/sec\n", cpu_double_qps / 1e6)
+    @printf("CPU (HiveHT):        %8.2f M queries/sec\n", cpu_hive_qps / 1e6)
 
     if use_metal
         double_qps = benchmark_metal_query(mtl_double_builder, n_entries, n_queries, load_factor)
         hive_qps   = benchmark_metal_query(mtl_hive_builder,   n_entries, n_queries, load_factor)
-        @printf("Metal MtlDoubleHT:   %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_qps)
-        @printf("Metal MtlHiveHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_qps)
+        @printf("Metal MtlDoubleHT:   %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_double_qps)
+        @printf("Metal MtlHiveHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_hive_qps)
+    end
+
+    if use_cuda
+        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor)
+        @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_double_qps)
+        @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_hive_qps)
     end
 end
