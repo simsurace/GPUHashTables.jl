@@ -129,40 +129,49 @@ Metal benchmarks are with Apple M3 Pro, CUDA benchmarks are with an RTX2070.
 
 Tested with 10M entries table, 10M query batch, load factor 0.7:
 
-| Metric | Metal | CUDA |
+| Metric | `MtlDoubleHT` | `CuDoubleHT` |
 |--------|-------------|-------------|
-| Positive queries (all keys exist) | 390 M  | 701.46 M |
-| Negative queries (no keys exist) | 376 M  | 582.96 M |
-| Mixed queries (50/50) | 375 M  | 634.29 M |
+| Positive queries (all keys exist) | 98.1 M  | 651 M |
+| Negative queries (no keys exist) | 98.7 M  | 636 M |
+| Mixed queries (50/50) | 98.3 M  | 660 M |
 
 ### Query Scaling
 
 **Scaling with table size** (10M queries, load factor 0.7):
 
-| Table Size | Metal | CUDA |
+| Table Size | `MtlDoubleHT` | `CuDoubleHT` |
 |------------|------------|------------|
-| 100K | 390 M | 1067.07 M |
-| 1M | 391 M | 709.03 M |
-| 10M | 390 M | 712.70 M |
-| 50M | 389 M | 722.84 M |
+| 100K | 98.1 M | 1110 M |
+| 1M | 97.8 M | 820 M |
+| 10M | 98.1 M | 804 M |
+| 50M | 98.0 M | 800 M |
 
 **Scaling with load factor** (10M entries, 10M queries):
 
-| Load Factor | Metal | CUDA |
+| Load Factor | `MtlDoubleHT` | `CuDoubleHT` |
 |-------------|------------|-----|
-| 0.5 | 394 M | 394 M | 711 M |
-| 0.6 | 393 M | 393 M | 698 M |
-| 0.7 | 391 M | 391 M | 684 M |
-| 0.8 | 386 M | 386 M | 666 M |
-| 0.9 | 376 M | 376 M | 576 M |
+| 0.5 | 98.1 M | 855 M |
+| 0.6 | 98.1 M | 837 M |
+| 0.7 | 97.5 M | 644 M |
+| 0.8 | 97.4 M | 748 M |
+| 0.9 | 97.6 M | 658 M |
+
+**Scaling with query batch size** (10M entries, load_factor=0.7):
+
+| Batch Size | `MtlDoubleHT` | `CuDoubleHT` |
+|-------------|------------|-----|
+| 10K | 36.8 M | 464 M |
+| 100K | 98.9 M | 742 M |
+| 1M | 106 M | 606 M |
+| 10M | 98.1 M | 773 M |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
-| Backend | Throughput | Speedup |
+| Backend | Queries/Sec | Speedup |
 |---------|------------|---------|
-| CPU | 40 M queries/sec | 1.0x |
-| Metal (M3 Pro) | 388 M queries/sec | 9.6x |
-| CUDA (RTX 2070) | 584 M queries/sec | 14.6x |
+| CPU | 40.6 M | 1.0x |
+| `MtlDoubleHT` (M3 Pro) | 107 M | 2.6x |
+| `CuDoubleHT` (RTX 2070) | 878 M | 22x |
 
 ### Running Benchmarks
 
