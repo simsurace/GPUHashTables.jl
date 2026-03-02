@@ -104,3 +104,11 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 ```bash
 julia --project=. benchmark/runbenchmarks.jl
 ```
+
+## TODOs:
+
+- Power-of-two n_buckets + bitwise AND to replace expensive modulo arithmetic in bucket
+  indexing. Requires changing the constructor to round up n_buckets to the next power of
+  two, and replacing % UInt32(n_buckets) with & UInt32(n_buckets - 1) in all kernels. The 
+  step calculation changes from h2 % (n_buckets - 1) + 1 to h2 | UInt32(1) (ensures odd
+  step, coprime with power-of-two size).
