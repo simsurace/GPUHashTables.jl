@@ -85,7 +85,7 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 |------------|---------------|--------------|-------------|------------|
 | 10K        | 34.3 M        | 464 M        | 29.5 M      | 30.6 M     |
 | 100K       | 99.7 M        | 742 M        | 109 M       | 31.7 M     |
-| 1M         | 106.8 M       | 606 M        | 119 M       | 29.8 M     |
+| 1M         | 107 M         | 606 M        | 119 M       | 29.8 M     |
 | 10M        | 98.1 M        | 773 M        | 108 M       | 29.4 M     |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
