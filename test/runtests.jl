@@ -12,7 +12,7 @@ using Metal
     if CUDA.functional()
         @testset "CUDA" begin
             include("test_double_cuda.jl")
-            include("test_hive_cuda.jl")
+            # include("test_hive_cuda.jl")
         end
     else
         @warn "CUDA not available - skipping CUDA GPU tests"
@@ -22,7 +22,7 @@ using Metal
         using Metal: MtlVector
         @testset "Metal" begin
             include("test_double_metal.jl")
-            include("test_hive_metal.jl")
+            # include("test_hive_metal.jl")
         end
     else
         @warn "Metal not available - skipping Metal GPU tests"

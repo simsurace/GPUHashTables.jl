@@ -66,7 +66,6 @@ include("HiveHT/metal/table.jl")
 
 # DoubleHT types
 export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
-export CuMutableDoubleHT, MtlMutableDoubleHT
 
 # HiveHT types
 export CuHiveHT, MtlHiveHT

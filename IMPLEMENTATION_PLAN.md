@@ -31,11 +31,11 @@ GPUHashTables/
 │   │   ├── cuda/
 │   │   │   ├── warp_utils.jl     # tile_id, tile_lane, tile_ballot
 │   │   │   ├── kernels.jl        # query_kernel!, upsert_kernel!
-│   │   │   └── table.jl          # CuDoubleHT, CuMutableDoubleHT
+│   │   │   └── table.jl          # CuDoubleHT, CuDoubleHT
 │   │   └── metal/
 │   │       ├── simd_utils.jl     # metal_tile_*, simd_ballot wrappers
 │   │       ├── kernels.jl        # metal_query_kernel!, metal_upsert_kernel!
-│   │       └── table.jl          # MtlDoubleHT, MtlMutableDoubleHT
+│   │       └── table.jl          # MtlDoubleHT, MtlDoubleHT
 │   └── HiveHT/
 │       ├── types.jl              # HiveBucket, pack/unpack, constants
 │       ├── cuda/
@@ -106,25 +106,13 @@ Double hashing hash table with warp/simdgroup-cooperative parallelism. Port of w
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Types
-
-```julia
-# CUDA
-struct CuDoubleHT{K,V}        # Immutable, query-only
-struct CuMutableDoubleHT{K,V} # Mutable, supports upsert
-
-# Metal
-struct MtlDoubleHT{K,V}        # Immutable, query-only
-struct MtlMutableDoubleHT{K,V} # Mutable, supports upsert
-```
-
 ## API
 
 ```julia
 # Construction
 CPUDoubleHT(keys, vals; load_factor=0.7)
 CuDoubleHT(cpu_table)
-CuMutableDoubleHT{K,V}(n_buckets)
+CuDoubleHT{K,V}(n_buckets)
 
 # Operations
 query(table, keys) -> (found::Vector{Bool}, results::Vector{V})
