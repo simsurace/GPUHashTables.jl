@@ -25,6 +25,7 @@ using Metal
         @testset "Metal" begin
             include("test_double_metal.jl")
             include("test_hive_metal.jl")
+            include("test_simple_metal.jl")
         end
     else
         @warn "Metal not available - skipping Metal GPU tests"

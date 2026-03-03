@@ -154,6 +154,7 @@ cu_double_builder(keys, vals, lf) = CuDoubleHT(CPUDoubleHT(keys, vals; load_fact
 cu_hive_builder(keys, vals, lf)   = CuHiveHT(CPUHiveHT(keys, vals; load_factor=lf))
 cu_simple_builder(keys, vals, lf) = CuSimpleHT(CPUSimpleHT(keys, vals; load_factor=lf))
 
+mtl_simple_builder(keys, vals, lf) = MtlSimpleHT(CPUSimpleHT(keys, vals; load_factor=lf))
 mtl_double_builder(keys, vals, lf) = MtlDoubleHT(CPUDoubleHT(keys, vals; load_factor=lf))
 mtl_hive_builder(keys, vals, lf)   = MtlHiveHT(CPUHiveHT(keys, vals; load_factor=lf))
 
@@ -184,7 +185,7 @@ function run_comparison_benchmark(n_entries, n_queries, load_factor; use_cuda::B
 
     bench_row("CPUSimpleHT", cpu_simple_builder, benchmark_cpu_query)
     use_cuda && bench_row("CuSimpleHT",  cu_simple_builder, benchmark_cuda_query)
-    # use_metal && bench_row("MtlSimpleHT", mtl_simple_builder, benchmark_metal_query)
+    use_metal && bench_row("MtlSimpleHT", mtl_simple_builder, benchmark_metal_query)
 
     bench_row("CPUDoubleHT", cpu_double_builder, benchmark_cpu_query)
     use_cuda && bench_row("CuDoubleHT",  cu_double_builder, benchmark_cuda_query)

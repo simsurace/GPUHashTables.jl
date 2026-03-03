@@ -23,6 +23,7 @@ function run_scaling_benchmarks(
 
         cpu_simple = safe_bench(() -> benchmark_cpu_query(cpu_simple_builder, ne, nq, lf; n_iterations))
         cu_simple = use_cuda ? safe_bench(() -> benchmark_cuda_query(cu_simple_builder, ne, nq, lf; n_iterations)) : NaN
+        mtl_simple = use_metal ? safe_bench(() -> benchmark_metal_query(mtl_simple_builder, ne, nq, lf; n_iterations)) : NaN
 
         cpu_double = safe_bench(() -> benchmark_cpu_query(cpu_double_builder, ne, nq, lf; n_iterations))
         cu_double = use_cuda ? safe_bench(() -> benchmark_cuda_query(cu_double_builder, ne, nq, lf; n_iterations)) : NaN
@@ -32,10 +33,10 @@ function run_scaling_benchmarks(
         cu_hive = use_cuda ? safe_bench(() -> benchmark_cuda_query(cu_hive_builder, ne, nq, lf; n_iterations)) : NaN
         mtl_hive = use_metal ? safe_bench(() -> benchmark_metal_query(mtl_hive_builder, ne, nq, lf; n_iterations)) : NaN
 
-        return (dict, cpu_simple, cu_simple, cpu_double, cu_double, mtl_double, cpu_hive, cu_hive, mtl_hive)
+        return (dict, cpu_simple, cu_simple, mtl_simple, cpu_double, cu_double, mtl_double, cpu_hive, cu_hive, mtl_hive)
     end
 
-    col_names = ("Base.Dict", "CPUSimpleHT", "CuSimpleHT", "CPUDoubleHT", "CuDoubleHT", "MtlDoubleHT", "CPUHiveHT", "CuHiveHT", "MtlHiveHT")
+    col_names = ("Base.Dict", "CPUSimpleHT", "CuSimpleHT", "MtlSimpleHT", "CPUDoubleHT", "CuDoubleHT", "MtlDoubleHT", "CPUHiveHT", "CuHiveHT", "MtlHiveHT")
 
     function print_header(first_col)
         @printf("%12s", first_col)
