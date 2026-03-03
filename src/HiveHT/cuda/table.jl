@@ -8,8 +8,12 @@ CUDA GPU HiveHT hash table with 64-bit packed key-value pairs.
 Uses WCME protocol for lock-free queries and WABC protocol for upserts.
 Supports deletion via tombstones.
 
+Pairs are stored as a flat `CuVector{UInt64}` (n_buckets × 32 elements) so
+that every thread in a warp loads exactly its own 8-byte slot — a fully
+coalesced 256-byte read per probe across the 32 lanes.
+
 # Fields
-- `buckets`: CuVector of HiveBucket structs (32 packed pairs each)
+- `pairs`: Flat CuVector of UInt64 pairs (n_buckets × 32 elements)
 - `freemasks`: CuVector of freemask bitmaps (one UInt32 per bucket)
 - `n_buckets`: Number of buckets
 - `n_entries`: Approximate number of entries (not updated atomically)
@@ -19,7 +23,7 @@ Supports deletion via tombstones.
 Currently only supports `K = V = UInt32` due to the 64-bit packed pair format.
 """
 mutable struct CuHiveHT{K,V}
-    buckets::CuVector{HiveBucket}
+    pairs::CuVector{UInt64}
     freemasks::CuVector{UInt32}
     n_buckets::Int
     n_entries::Int
@@ -39,7 +43,6 @@ Each bucket has 32 slots, so total capacity is `n_buckets * 32` entries.
 
 # Example
 ```julia
-# Create empty table sized for ~1M entries at 70% load
 n_entries = 1_000_000
 n_buckets = cld(cld(n_entries, 0.7), 32)
 table = CuHiveHT{UInt32,UInt32}(n_buckets)
@@ -52,27 +55,19 @@ function CuHiveHT{K,V}(
     @assert K === UInt32 && V === UInt32 "HiveHT currently only supports UInt32 keys and values"
     @assert n_buckets > 0 "Number of buckets must be positive"
 
-    # Initialize all buckets with empty pairs
-    cpu_buckets = fill(empty_hive_bucket(), n_buckets)
-    gpu_buckets = CuVector(cpu_buckets)
-
-    # Initialize all freemasks to all-ones (all slots free)
+    total_slots   = n_buckets * HIVE_BUCKET_SIZE
+    gpu_pairs     = CUDA.fill(HIVE_EMPTY_PAIR, total_slots)
     gpu_freemasks = CUDA.fill(UInt32(0xFFFFFFFF), n_buckets)
 
-    return CuHiveHT{K,V}(
-        gpu_buckets,
-        gpu_freemasks,
-        n_buckets,
-        0,
-        empty_key
-    )
+    return CuHiveHT{K,V}(gpu_pairs, gpu_freemasks, n_buckets, 0, empty_key)
 end
 
 """
     CuHiveHT(cpu_table::CPUHiveHT{K,V}) -> CuHiveHT{K,V}
 
 Transfer a CPU HiveHT table to the GPU without invoking the upsert kernel.
-The bucket layout is identical, so the data is copied directly.
+The HiveBucket array is flattened into the flat-pair layout expected by the
+CUDA kernels, matching the same coalesced access pattern.
 
 # Example
 ```julia
@@ -82,12 +77,25 @@ found, results = query(gpu_table, keys)
 ```
 """
 function CuHiveHT(cpu_table::CPUHiveHT{K,V}) where {K,V}
-    gpu_buckets = CuVector(cpu_table.buckets)
+    n_buckets   = cpu_table.n_buckets
+    total_slots = n_buckets * HIVE_BUCKET_SIZE
+
+    cpu_pairs = Vector{UInt64}(undef, total_slots)
+    for b in 1:n_buckets
+        bucket = cpu_table.buckets[b]
+        base   = (b - 1) * HIVE_BUCKET_SIZE
+        for s in 1:HIVE_BUCKET_SIZE
+            cpu_pairs[base + s] = bucket.pairs[s]
+        end
+    end
+
+    gpu_pairs     = CuVector(cpu_pairs)
     gpu_freemasks = CuVector(cpu_table.freemasks)
+
     return CuHiveHT{K,V}(
-        gpu_buckets,
+        gpu_pairs,
         gpu_freemasks,
-        cpu_table.n_buckets,
+        n_buckets,
         cpu_table.n_entries,
         cpu_table.empty_key
     )
@@ -97,11 +105,6 @@ end
     CuHiveHT(keys::Vector{K}, vals::Vector{V}; load_factor=0.7) -> CuHiveHT{K,V}
 
 Create a CUDA HiveHT table and populate it with the given key-value pairs.
-
-# Arguments
-- `keys`: Vector of keys to insert
-- `vals`: Vector of values to insert
-- `load_factor`: Target load factor (default 0.7)
 
 # Example
 ```julia
@@ -125,17 +128,12 @@ function CuHiveHT(
         return CuHiveHT{K,V}(1; empty_key=empty_key)
     end
 
-    # Calculate number of buckets needed
     total_slots_needed = ceil(Int, n / load_factor)
-    n_buckets = max(1, cld(total_slots_needed, HIVE_BUCKET_SIZE))
+    n_buckets          = max(1, cld(total_slots_needed, HIVE_BUCKET_SIZE))
 
-    # Create empty table
-    table = CuHiveHT{K,V}(n_buckets; empty_key=empty_key)
-
-    # Insert all key-value pairs
+    table  = CuHiveHT{K,V}(n_buckets; empty_key=empty_key)
     status = upsert!(table, keys, vals)
 
-    # Check that all inserts succeeded
     failed = count(s -> s == UPSERT_FAILED, status)
     if failed > 0
         @warn "HiveHT construction: $failed out of $n inserts failed"
@@ -154,12 +152,6 @@ end
     query!(results::CuVector{V}, found::CuVector{Bool}, table::CuHiveHT{K,V}, keys::CuVector{K})
 
 Batch query keys on the GPU HiveHT table.
-
-# Arguments
-- `results`: Pre-allocated GPU vector for result values
-- `found`: Pre-allocated GPU vector for found flags
-- `table`: GPU HiveHT table
-- `keys`: GPU vector of keys to query
 """
 function query!(
     results::CuVector{V},
@@ -175,16 +167,14 @@ function query!(
         return nothing
     end
 
-    # Configure kernel launch
-    # Each warp (32 threads) handles one query
     threads_per_block = 256  # Must be multiple of 32
-    warps_per_block = threads_per_block ÷ 32
-    n_blocks = cld(n_queries, warps_per_block)
+    warps_per_block   = threads_per_block ÷ 32
+    n_blocks          = cld(n_queries, warps_per_block)
 
     @cuda threads=threads_per_block blocks=n_blocks hive_query_kernel!(
         results,
         found,
-        table.buckets,
+        table.pairs,
         Int32(table.n_buckets),
         keys,
         Int32(n_queries)
@@ -200,9 +190,9 @@ end
 Batch query keys on the GPU HiveHT table, allocating result vectors.
 """
 function query(table::CuHiveHT{K,V}, keys::CuVector{K}) where {K,V}
-    n = length(keys)
+    n       = length(keys)
     results = CUDA.zeros(V, n)
-    found = CUDA.zeros(Bool, n)
+    found   = CUDA.zeros(Bool, n)
     query!(results, found, table, keys)
     return (found, results)
 end
@@ -211,7 +201,6 @@ end
     query(table::CuHiveHT{K,V}, keys::Vector{K}) -> (found::Vector{Bool}, results::Vector{V})
 
 Query GPU HiveHT table with CPU keys, handling transfers automatically.
-Results are returned as CPU vectors.
 """
 function query(table::CuHiveHT{K,V}, keys::Vector{K}) where {K,V}
     gpu_keys = CuVector(keys)
@@ -227,15 +216,6 @@ end
     upsert!(status::CuVector{UInt8}, table::CuHiveHT{K,V}, keys::CuVector{K}, vals::CuVector{V})
 
 Batch upsert (insert or update) key-value pairs into the GPU HiveHT table.
-
-# Arguments
-- `status`: Pre-allocated GPU vector for operation results
-  - 0 = failed (table full, CAS conflict, or max probes exceeded)
-  - 1 = inserted (new key)
-  - 2 = updated (existing key)
-- `table`: HiveHT GPU hash table
-- `keys`: GPU vector of keys to upsert
-- `vals`: GPU vector of values to upsert
 """
 function upsert!(
     status::CuVector{UInt8},
@@ -252,12 +232,12 @@ function upsert!(
     end
 
     threads_per_block = 256
-    warps_per_block = threads_per_block ÷ 32
-    n_blocks = cld(n_ops, warps_per_block)
+    warps_per_block   = threads_per_block ÷ 32
+    n_blocks          = cld(n_ops, warps_per_block)
 
     @cuda threads=threads_per_block blocks=n_blocks hive_upsert_kernel!(
         status,
-        table.buckets,
+        table.pairs,
         table.freemasks,
         Int32(table.n_buckets),
         keys,
@@ -279,7 +259,7 @@ function upsert!(
     keys::CuVector{K},
     vals::CuVector{V}
 ) where {K,V}
-    n = length(keys)
+    n      = length(keys)
     status = CUDA.zeros(UInt8, n)
     upsert!(status, table, keys, vals)
     return status
@@ -295,8 +275,8 @@ function upsert!(
     keys::Vector{K},
     vals::Vector{V}
 ) where {K,V}
-    gpu_keys = CuVector(keys)
-    gpu_vals = CuVector(vals)
+    gpu_keys   = CuVector(keys)
+    gpu_vals   = CuVector(vals)
     status_gpu = upsert!(table, gpu_keys, gpu_vals)
     return Vector(status_gpu)
 end
@@ -309,15 +289,7 @@ end
     delete!(status::CuVector{UInt8}, table::CuHiveHT{K,V}, keys::CuVector{K})
 
 Batch delete keys from the GPU HiveHT table.
-
 Deletion marks slots as tombstones, which can be reused for future inserts.
-
-# Arguments
-- `status`: Pre-allocated GPU vector for operation results
-  - 0 = failed (key not found or CAS conflict)
-  - 1 = success (key was deleted)
-- `table`: HiveHT GPU hash table
-- `keys`: GPU vector of keys to delete
 """
 function Base.delete!(
     status::CuVector{UInt8},
@@ -332,12 +304,12 @@ function Base.delete!(
     end
 
     threads_per_block = 256
-    warps_per_block = threads_per_block ÷ 32
-    n_blocks = cld(n_ops, warps_per_block)
+    warps_per_block   = threads_per_block ÷ 32
+    n_blocks          = cld(n_ops, warps_per_block)
 
     @cuda threads=threads_per_block blocks=n_blocks hive_delete_kernel!(
         status,
-        table.buckets,
+        table.pairs,
         table.freemasks,
         Int32(table.n_buckets),
         keys,
@@ -357,7 +329,7 @@ function Base.delete!(
     table::CuHiveHT{K,V},
     keys::CuVector{K}
 ) where {K,V}
-    n = length(keys)
+    n      = length(keys)
     status = CUDA.zeros(UInt8, n)
     delete!(status, table, keys)
     return status
@@ -372,7 +344,7 @@ function Base.delete!(
     table::CuHiveHT{K,V},
     keys::Vector{K}
 ) where {K,V}
-    gpu_keys = CuVector(keys)
+    gpu_keys   = CuVector(keys)
     status_gpu = delete!(table, gpu_keys)
     return Vector(status_gpu)
 end

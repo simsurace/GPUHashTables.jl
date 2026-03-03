@@ -56,9 +56,9 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 
 | Metric                            | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
 |-----------------------------------|-------------|---------------|--------------|-------------|------------|
-| Positive queries (all keys exist) | 50.2 M      | 75.5 M        | 114.0 M      | 70.3 M      | 27.6 M     |
-| Negative queries (no keys exist)  | 36.7 M      | 77.7 M        | 219.1 M      | 78.1 M      | 27.6 M     |
-| Mixed queries (50/50)             | 21.2 M      | 76.4 M        | 266.3 M      | 78.6 M      | 27.7 M     |
+| Positive queries (all keys exist) | 50.2 M      | 75.5 M        | 119 M        | 70.3 M      | 161 M      |
+| Negative queries (no keys exist)  | 36.7 M      | 77.7 M        | 215 M        | 78.1 M      | 240 M      |
+| Mixed queries (50/50)             | 21.2 M      | 76.4 M        | 221 M        | 78.6 M      | 245 M      |
 
 ### Query Scaling
 
@@ -66,29 +66,29 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 
 | Table Size | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
 |------------|-------------|---------------|--------------|-------------|------------|
-| 100K       | 179 M       | 82.7 M        | 224.7 M      | 85.5 M      | 29.8 M     |
-| 1M         | 113 M       | 74.0 M        | 232.1 M      | 85.0 M      | 28.5 M     |
-| 10M        | 49.4 M      | 70.6 M        | 259.2 M      | 81.3 M      | 28.4 M     |
-| 50M        | 51.4 M      | 78.8 M        | 104.5 M      | 50.4 M      | 25.7 M     |
+| 100K       | 179 M       | 82.7 M        | 265 M        | 85.5 M      | 293 M      |
+| 1M         | 113 M       | 74.0 M        | 208 M        | 85.0 M      | 224 M      |
+| 10M        | 49.4 M      | 70.6 M        | 274 M        | 81.3 M      | 248 M      |
+| 50M        | 51.4 M      | 78.8 M        | 103 M        | 50.4 M      | 105 M      |
 
 **Scaling with load factor** (10M entries, 10M queries):
 
 | Load Factor | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
 |-------------|-------------|---------------|--------------|-------------|------------|
-| 0.5         | 51.0 M      | 70.8 M        | 235.8 M      | 82.7 M      | 29.2 M     |
-| 0.6         | 49.0 M      | 69.8 M        | 257.6 M      | 79.2 M      | 29.2 M     |
-| 0.7         | 49.0 M      | 70.7 M        | 251.3 M      | 83.1 M      | 29.4 M     |
-| 0.8         | 48.0 M      | 69.4 M        | 240.5 M      | 79.1 M      | 29.3 M     |
-| 0.9         | 46.6 M      | 59.4 M        | 237.4 M      | 82.0 M      | 28.4 M     |
+| 0.5         | 51.0 M      | 70.8 M        | 209 M        | 82.7 M      | 208 M      |
+| 0.6         | 49.0 M      | 69.8 M        | 254 M        | 79.2 M      | 250 M      |
+| 0.7         | 49.0 M      | 70.7 M        | 254 M        | 83.1 M      | 257 M      |
+| 0.8         | 48.0 M      | 69.4 M        | 252 M        | 79.1 M      | 251 M      |
+| 0.9         | 46.6 M      | 59.4 M        | 240 M        | 82.0 M      | 249 M      |
 
 **Scaling with query batch size** (10M entries, load_factor=0.7):
 
 | Batch Size | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
 |------------|-------------|---------------|--------------|-------------|------------|
-| 10K        | 150 M       | 14.3 M        | 133.6 M      | 11.6 M      | 25.6 M     |
-| 100K       | 55.2 M      | 57.3 M        | 307.2 M      | 49.5 M      | 27.7 M     |
-| 1M         | 39.9 M      | 86.2 M        | 190.8 M      | 81.4 M      | 28.3 M     |
-| 10M        | 51.1 M      | 82.0 M        | 158.0 M      | 75.1 M      | 27.7 M     |
+| 10K        | 150 M       | 14.3 M        | 141 M        | 11.6 M      | 152 M      |
+| 100K       | 55.2 M      | 57.3 M        | 301 M        | 49.5 M      | 331 M      |
+| 1M         | 39.9 M      | 86.2 M        | 186 M        | 81.4 M      | 191 M      |
+| 10M        | 51.1 M      | 82.0 M        | 161 M        | 75.1 M      | 165 M      |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
@@ -99,8 +99,8 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 | `CPUHiveHT` (M3 Pro)    | 29.2 M      | 0.3x    |
 | `MtlDoubleHT` (M3 Pro)  | 87.9 M      | 0.8x    |
 | `MtlHiveHT` (M3 Pro)    | 84.8 M      | 0.7x    |
-| `CuDoubleHT` (RTX 2070) | 415.6 M     | 13.7x   |
-| `CuHiveHT` (RTX 2070)   | 31.3 M      | 1.0x    |
+| `CuDoubleHT` (RTX 2070) | 408 M       | 3.52x   |
+| `CuHiveHT` (RTX 2070)   | 172 M       | 1.48x   |
 
 ### Running Benchmarks
 
