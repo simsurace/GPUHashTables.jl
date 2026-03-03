@@ -161,98 +161,36 @@ mtl_hive_builder(keys, vals, lf)   = MtlHiveHT(CPUHiveHT(keys, vals; load_factor
 # Run functions
 # =============================================================================
 
-function run_cuda_query_benchmarks()
+function run_comparison_benchmark(n_entries, n_queries, load_factor; use_cuda::Bool=false, use_metal::Bool=false)
     println("-" ^ 70)
-    println("CUDA Query Throughput Benchmarks")
+    println("Comparison Benchmark (1M entries, 1M queries, load factor 0.7)")
     println("-" ^ 70)
-
-    n_entries   = 10_000_000
-    n_queries   = 10_000_000
-    load_factor = 0.7
-
-    println("\nTable size:  $(n_entries ÷ 1_000_000)M entries")
-    println("Query batch: $(n_queries ÷ 1_000_000)M queries")
-    println("Load factor: $load_factor")
-    println()
-
-    @printf("%-28s  %14s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "CuDoubleHT", "CuHiveHT", "CuSimpleHT")
-    @printf("%-28s  %14s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12, "-"^12)
-
-    for (label, ratio) in [
-        ("Positive (all keys exist)", 1.0),
-        ("Negative (no keys exist)",  0.0),
-        ("Mixed (50/50)",             0.5),
-    ]
-        dict_qps   = benchmark_cpu_query(dict_builder,        n_entries, n_queries, load_factor; positive_ratio=ratio)
-        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, load_factor; positive_ratio=ratio)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, load_factor; positive_ratio=ratio)
-        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, load_factor; positive_ratio=ratio)
-        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6, simple_qps / 1e6)
-    end
-end
-
-function run_metal_query_benchmarks()
-    println("-" ^ 70)
-    println("Metal Query Throughput Benchmarks")
-    println("-" ^ 70)
-
-    n_entries   = 10_000_000
-    n_queries   = 10_000_000
-    load_factor = 0.7
-
-    println("\nTable size:  $(n_entries ÷ 1_000_000)M entries")
-    println("Query batch: $(n_queries ÷ 1_000_000)M queries")
-    println("Load factor: $load_factor")
-    println()
-
-    @printf("%-28s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "MtlDoubleHT", "MtlHiveHT")
-    @printf("%-28s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12)
-
-    for (label, ratio) in [
-        ("Positive (all keys exist)", 1.0),
-        ("Negative (no keys exist)",  0.0),
-        ("Mixed (50/50)",             0.5),
-    ]
-        dict_qps   = benchmark_cpu_query(dict_builder,          n_entries, n_queries, load_factor; positive_ratio=ratio)
-        double_qps = benchmark_metal_query(mtl_double_builder, n_entries, n_queries, load_factor; positive_ratio=ratio)
-        hive_qps   = benchmark_metal_query(mtl_hive_builder,   n_entries, n_queries, load_factor; positive_ratio=ratio)
-        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
-    end
-end
-
-function run_comparison_benchmark(; use_cuda::Bool=false, use_metal::Bool=false)
-    println("-" ^ 60)
-    println("GPU vs CPU Comparison")
-    println("-" ^ 60)
-
-    n_entries   = 1_000_000
-    n_queries   = 1_000_000
-    load_factor = 0.7
 
     println("\nTable size:  $(n_entries ÷ 1_000_000)M entries")
     println("Query batch: $(n_queries ÷ 1_000_000)M queries")
     println()
 
-    dict_qps       = benchmark_cpu_query(dict_builder,       n_entries, n_queries, load_factor)
-    cpu_double_qps = benchmark_cpu_query(cpu_double_builder, n_entries, n_queries, load_factor)
-    cpu_hive_qps   = benchmark_cpu_query(cpu_hive_builder,   n_entries, n_queries, load_factor)
-    @printf("Base.Dict:           %8.2f M queries/sec\n", dict_qps / 1e6)
-    @printf("CPU (DoubleHT):      %8.2f M queries/sec  (%.1fx)\n", cpu_double_qps / 1e6, cpu_double_qps / dict_qps)
-    @printf("CPU (HiveHT):        %8.2f M queries/sec  (%.1fx)\n", cpu_hive_qps / 1e6, cpu_hive_qps / dict_qps)
+    @printf("%-20s  %14s  %14s  %14s\n", "Hash Table", "Positive", "Negative", "Mixed")
+    @printf("%-20s  %14s  %14s  %14s\n", "-"^18, "-"^12, "-"^12, "-"^12)
 
-    if use_metal
-        double_qps = benchmark_metal_query(mtl_double_builder, n_entries, n_queries, load_factor)
-        hive_qps   = benchmark_metal_query(mtl_hive_builder,   n_entries, n_queries, load_factor)
-        @printf("Metal MtlDoubleHT:   %8.2f M queries/sec  (%.1fx)\n", double_qps / 1e6, double_qps / dict_qps)
-        @printf("Metal MtlHiveHT:     %8.2f M queries/sec  (%.1fx)\n", hive_qps   / 1e6, hive_qps   / dict_qps)
+    function bench_row(label, build_fn, bench_fn)
+        pos_qps = bench_fn(build_fn, n_entries, n_queries, load_factor; positive_ratio=1.0)
+        neg_qps = bench_fn(build_fn, n_entries, n_queries, load_factor; positive_ratio=0.0)
+        mix_qps = bench_fn(build_fn, n_entries, n_queries, load_factor; positive_ratio=0.5)
+        @printf("%-20s  %11.2f M  %11.2f M  %11.2f M\n", label, pos_qps / 1e6, neg_qps / 1e6, mix_qps / 1e6)
     end
 
-    if use_cuda
-        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, load_factor)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, load_factor)
-        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, load_factor)
-        @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx)\n", double_qps / 1e6, double_qps / dict_qps)
-        @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx)\n", hive_qps   / 1e6, hive_qps   / dict_qps)
-        @printf("CUDA CuSimpleHT:     %8.2f M queries/sec  (%.1fx)\n", simple_qps / 1e6, simple_qps / dict_qps)
-    end
+    bench_row("Base.Dict", dict_builder, benchmark_cpu_query)
+
+    bench_row("CPUSimpleHT", cpu_simple_builder, benchmark_cpu_query)
+    use_cuda && bench_row("CuSimpleHT",  cu_simple_builder, benchmark_cuda_query)
+    # use_metal && bench_row("MtlSimpleHT", mtl_simple_builder, benchmark_metal_query)
+
+    bench_row("CPUDoubleHT", cpu_double_builder, benchmark_cpu_query)
+    use_cuda && bench_row("CuDoubleHT",  cu_double_builder, benchmark_cuda_query)
+    use_metal && bench_row("MtlDoubleHT", mtl_double_builder, benchmark_metal_query)
+
+    bench_row("CPUHiveHT", cpu_hive_builder, benchmark_cpu_query)
+    use_cuda && bench_row("CuHiveHT", cu_hive_builder, benchmark_cuda_query)
+    use_metal && bench_row("MtlHiveHT", mtl_hive_builder, benchmark_metal_query)
 end
