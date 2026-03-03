@@ -58,16 +58,12 @@ function metal_query_kernel!(
     key = keys[query_idx]
     h1, h2 = double_hash_gpu(key)
 
-    # Ensure step is non-zero
-    if n_buckets == Int32(1)
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     # Probe sequence
     for probe in Int32(0):Int32(MAX_PROBES - 1)
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(n_buckets - 1)) + UInt32(1)
 
         # Load bucket - all 32 threads load simultaneously
         bucket = buckets[bucket_idx]
@@ -188,18 +184,14 @@ function metal_upsert_kernel!(
     val = vals[op_idx]
     h1, h2 = double_hash_gpu(key)
 
-    # Ensure step is non-zero
-    if n_buckets == Int32(1)
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     # Probe sequence with locking
     # When lock is contended, we return FAILED and let host retry
     # No intra-simdgroup deadlock since tile == simdgroup
     for probe in Int32(0):Int32(MAX_PROBES - 1)
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(n_buckets - 1)) + UInt32(1)
 
         # Lane 0 tries to acquire lock (single attempt, no spinning)
         lock_acquired = false

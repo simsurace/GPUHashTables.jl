@@ -57,12 +57,10 @@ function CPUDoubleHT(
         end
     end
 
-    # Calculate number of buckets needed
-    # Total slots = n_buckets * BUCKET_SIZE
-    # load_factor = n_entries / total_slots
+    # Calculate number of buckets needed, rounded up to the next power of two.
+    # Power-of-two size lets the kernel replace % n_buckets with & (n_buckets-1).
     total_slots_needed = ceil(Int, n_entries / load_factor)
-    n_buckets = ceil(Int, total_slots_needed / BUCKET_SIZE)
-    n_buckets = max(n_buckets, 1)  # At least one bucket
+    n_buckets = nextpow(2, max(1, ceil(Int, total_slots_needed / BUCKET_SIZE)))
 
     # Initialize empty buckets
     empty_slot = Slot{K,V}(empty_key, empty_val)
@@ -91,16 +89,11 @@ Returns true on success, false if max probes exceeded.
 function insert_cpu!(table::CPUDoubleHT{K,V}, key::K, val::V)::Bool where {K,V}
     h1, h2 = double_hash(key)
 
-    # Ensure step is non-zero and coprime-ish to n_buckets
-    # Handle edge case where n_buckets == 1
-    if table.n_buckets == 1
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(table.n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     for probe in 0:MAX_PROBES-1
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(table.n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(table.n_buckets - 1)) + UInt32(1)
         bucket = table.buckets[bucket_idx]
 
         # Search for empty slot or existing key in this bucket

@@ -49,9 +49,9 @@ function MtlDoubleHT(cpu_table::CPUDoubleHT{K,V}) where {K,V}
         end
     end
 
-    # Calculate number of Metal buckets needed (32 slots each)
+    # Calculate number of Metal buckets needed (32 slots each), rounded to next power of two.
     n_entries = length(entries)
-    n_buckets = max(1, cld(Int(ceil(n_entries / DEFAULT_LOAD_FACTOR)), METAL_BUCKET_SIZE))
+    n_buckets = nextpow(2, max(1, cld(Int(ceil(n_entries / DEFAULT_LOAD_FACTOR)), METAL_BUCKET_SIZE)))
 
     # Initialize empty buckets
     empty_slot = Slot{K,V}(cpu_table.empty_key, cpu_table.empty_val)
@@ -61,11 +61,11 @@ function MtlDoubleHT(cpu_table::CPUDoubleHT{K,V}) where {K,V}
     # Insert entries using double hashing
     for (key, val) in entries
         h1, h2 = double_hash(key)
-        step = n_buckets == 1 ? UInt32(1) : h2 % UInt32(n_buckets - 1) + UInt32(1)
+        step = h2 | UInt32(1)
 
         inserted = false
         for probe in 0:(MAX_PROBES - 1)
-            bucket_idx = Int((h1 + step * UInt32(probe)) % UInt32(n_buckets)) + 1
+            bucket_idx = Int((h1 + step * UInt32(probe)) & UInt32(n_buckets - 1)) + 1
             bucket = metal_buckets_cpu[bucket_idx]
 
             # Find empty slot in bucket

@@ -12,15 +12,11 @@ Returns a tuple of (found, value) where:
 function query(table::CPUDoubleHT{K,V}, key::K)::Tuple{Bool,V} where {K,V}
     h1, h2 = double_hash(key)
 
-    # Handle edge case where n_buckets == 1
-    if table.n_buckets == 1
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(table.n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     for probe in 0:MAX_PROBES-1
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(table.n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(table.n_buckets - 1)) + UInt32(1)
         bucket = table.buckets[bucket_idx]
 
         found_empty = false

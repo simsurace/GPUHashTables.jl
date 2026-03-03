@@ -42,17 +42,12 @@ function query_kernel!(
     key = keys[query_idx]
     h1, h2 = double_hash_gpu(key)
 
-    # Ensure step is non-zero
-    # Handle edge case where n_buckets == 1
-    if n_buckets == Int32(1)
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     # Probe sequence
     for probe in Int32(0):Int32(MAX_PROBES - 1)
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(n_buckets - 1)) + UInt32(1)
 
         # Load bucket - all threads load simultaneously
         bucket = buckets[bucket_idx]
@@ -167,16 +162,12 @@ function upsert_kernel!(
     val = vals[op_idx]
     h1, h2 = double_hash_gpu(key)
 
-    # Ensure step is non-zero
-    if n_buckets == Int32(1)
-        step = UInt32(1)
-    else
-        step = h2 % UInt32(n_buckets - 1) + UInt32(1)
-    end
+    # Odd step is always coprime with a power-of-two n_buckets.
+    step = h2 | UInt32(1)
 
     # Probe sequence with locking
     for probe in Int32(0):Int32(MAX_PROBES - 1)
-        bucket_idx = (h1 + step * UInt32(probe)) % UInt32(n_buckets) + UInt32(1)
+        bucket_idx = ((h1 + step * UInt32(probe)) & UInt32(n_buckets - 1)) + UInt32(1)
 
         # Spin-wait until we acquire the lock for this bucket.
         # We must not skip to the next probe on lock contention: the query kernel
