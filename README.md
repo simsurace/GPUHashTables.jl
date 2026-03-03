@@ -47,6 +47,8 @@ found, results = query(gpu_table, query_keys)
 ## Benchmarks
 
 Metal benchmarks are with Apple M3 Pro, CUDA benchmarks are with an RTX 2070.
+For comparison, on an Apple M3 Pro, Julia `Base.Dict` achieves 50 M queries / second on a
+dictionary with 10 M entries.
 
 ### Query Throughput
 
@@ -90,14 +92,15 @@ Tested with 10M entries table, 10M query batch, load factor 0.7:
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
-| Backend                 | Queries/Sec | Speedup |
+| Hash Table              | Queries/Sec | Speedup |
 |-------------------------|-------------|---------|
-| `CPUDoubleHT` (M3 Pro)  | 41.0 M      | 1.0x    |
-| `MtlDoubleHT` (M3 Pro)  | 107 M       | 2.6x    |
-| `CuDoubleHT` (RTX 2070) | 878 M       | 22x     |
-| `CPUHiveHT` (M3 Pro)    | 29.4 M      | 1.0x    |
-| `MtlHiveHT` (M3 Pro)    | 119 M       | 4.1x    |
-| `CuHiveHT` (RTX 2070)   | 26.7 M      | 0.9x    |
+| `Base.Dict` (M3 Pro)    | 141 M       | 1.0x    |
+| `CPUDoubleHT` (M3 Pro)  | 41.0 M      | 0.3x    |
+| `MtlDoubleHT` (M3 Pro)  | 107 M       | 0.8x    |
+| `CuDoubleHT` (RTX 2070) | 878 M       | 6.2x    |
+| `CPUHiveHT` (M3 Pro)    | 29.4 M      | 0.2x    |
+| `MtlHiveHT` (M3 Pro)    | 119 M       | 0.8x    |
+| `CuHiveHT` (RTX 2070)   | 26.7 M      | 0.2x    |
 
 ### Running Benchmarks
 
