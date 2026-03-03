@@ -12,15 +12,16 @@ function run_cuda_scaling_benchmarks()
     n_queries   = 10_000_000
     load_factor = 0.7
 
-    @printf("%12s  %16s  %16s  %16s\n", "Table Size", "Base.Dict", "CuDoubleHT", "CuHiveHT")
-    @printf("%12s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14)
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "Table Size", "Base.Dict", "CuDoubleHT", "CuHiveHT", "CuSimpleHT")
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14, "-"^14)
 
     for n_entries in [100_000, 1_000_000, 10_000_000, 50_000_000]
-        dict_qps   = benchmark_cpu_query(dict_builder,       n_entries, n_queries, load_factor; n_iterations=5)
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor; n_iterations=5)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor; n_iterations=5)
+        dict_qps   = benchmark_cpu_query(dict_builder,        n_entries, n_queries, load_factor; n_iterations=5)
+        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, load_factor; n_iterations=5)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, load_factor; n_iterations=5)
+        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, load_factor; n_iterations=5)
         size_str = n_entries >= 1_000_000 ? "$(n_entries ÷ 1_000_000)M" : "$(n_entries ÷ 1_000)K"
-        @printf("%12s  %13.2f M  %13.2f M  %13.2f M\n", size_str, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
+        @printf("%12s  %13.2f M  %13.2f M  %13.2f M  %13.2f M\n", size_str, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6, simple_qps / 1e6)
     end
 
     # 2. Scaling with load factor
@@ -29,14 +30,15 @@ function run_cuda_scaling_benchmarks()
 
     n_entries = 10_000_000
 
-    @printf("%12s  %16s  %16s  %16s\n", "Load Factor", "Base.Dict", "CuDoubleHT", "CuHiveHT")
-    @printf("%12s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14)
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "Load Factor", "Base.Dict", "CuDoubleHT", "CuHiveHT", "CuSimpleHT")
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14, "-"^14)
 
     for lf in [0.5, 0.6, 0.7, 0.8, 0.9]
-        dict_qps   = benchmark_cpu_query(dict_builder,       n_entries, n_queries, lf; n_iterations=5)
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, lf; n_iterations=5)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, lf; n_iterations=5)
-        @printf("%12.1f  %13.2f M  %13.2f M  %13.2f M\n", lf, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
+        dict_qps   = benchmark_cpu_query(dict_builder,        n_entries, n_queries, lf; n_iterations=5)
+        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, lf; n_iterations=5)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, lf; n_iterations=5)
+        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, lf; n_iterations=5)
+        @printf("%12.1f  %13.2f M  %13.2f M  %13.2f M  %13.2f M\n", lf, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6, simple_qps / 1e6)
     end
 
     # 3. Scaling with query batch size
@@ -46,16 +48,17 @@ function run_cuda_scaling_benchmarks()
     n_entries   = 10_000_000
     load_factor = 0.7
 
-    @printf("%12s  %16s  %16s  %16s\n", "Batch Size", "Base.Dict", "CuDoubleHT", "CuHiveHT")
-    @printf("%12s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14)
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "Batch Size", "Base.Dict", "CuDoubleHT", "CuHiveHT", "CuSimpleHT")
+    @printf("%12s  %16s  %16s  %16s  %16s\n", "-"^10, "-"^14, "-"^14, "-"^14, "-"^14)
 
     for n_q in [10_000, 100_000, 1_000_000, 10_000_000]
         n_iter = max(1, 100_000_000 ÷ n_q)
-        dict_qps   = benchmark_cpu_query(dict_builder,       n_entries, n_q, load_factor; n_iterations=n_iter)
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_q, load_factor; n_iterations=n_iter)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_q, load_factor; n_iterations=n_iter)
+        dict_qps   = benchmark_cpu_query(dict_builder,        n_entries, n_q, load_factor; n_iterations=n_iter)
+        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_q, load_factor; n_iterations=n_iter)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_q, load_factor; n_iterations=n_iter)
+        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_q, load_factor; n_iterations=n_iter)
         size_str = n_q >= 1_000_000 ? "$(n_q ÷ 1_000_000)M" : "$(n_q ÷ 1_000)K"
-        @printf("%12s  %13.2f M  %13.2f M  %13.2f M\n", size_str, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
+        @printf("%12s  %13.2f M  %13.2f M  %13.2f M  %13.2f M\n", size_str, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6, simple_qps / 1e6)
     end
 end
 
