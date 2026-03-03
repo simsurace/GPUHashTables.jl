@@ -148,9 +148,11 @@ dict_builder(keys, vals, lf) = Dict(zip(keys, vals))
 
 cpu_double_builder(keys, vals, lf) = CPUDoubleHT(keys, vals; load_factor=lf)
 cpu_hive_builder(keys, vals, lf)   = CPUHiveHT(keys, vals; load_factor=lf)
+cpu_simple_builder(keys, vals, lf) = CPUSimpleHT(keys, vals; load_factor=lf)
 
 cu_double_builder(keys, vals, lf) = CuDoubleHT(CPUDoubleHT(keys, vals; load_factor=lf))
 cu_hive_builder(keys, vals, lf)   = CuHiveHT(CPUHiveHT(keys, vals; load_factor=lf))
+cu_simple_builder(keys, vals, lf) = CuSimpleHT(CPUSimpleHT(keys, vals; load_factor=lf))
 
 mtl_double_builder(keys, vals, lf) = MtlDoubleHT(CPUDoubleHT(keys, vals; load_factor=lf))
 mtl_hive_builder(keys, vals, lf)   = MtlHiveHT(CPUHiveHT(keys, vals; load_factor=lf))
@@ -173,18 +175,19 @@ function run_cuda_query_benchmarks()
     println("Load factor: $load_factor")
     println()
 
-    @printf("%-28s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "CuDoubleHT", "CuHiveHT")
-    @printf("%-28s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12)
+    @printf("%-28s  %14s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "CuDoubleHT", "CuHiveHT", "CuSimpleHT")
+    @printf("%-28s  %14s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12, "-"^12)
 
     for (label, ratio) in [
         ("Positive (all keys exist)", 1.0),
         ("Negative (no keys exist)",  0.0),
         ("Mixed (50/50)",             0.5),
     ]
-        dict_qps   = benchmark_cpu_query(dict_builder,     n_entries, n_queries, load_factor; positive_ratio=ratio)
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor; positive_ratio=ratio)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor; positive_ratio=ratio)
-        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
+        dict_qps   = benchmark_cpu_query(dict_builder,        n_entries, n_queries, load_factor; positive_ratio=ratio)
+        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, load_factor; positive_ratio=ratio)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, load_factor; positive_ratio=ratio)
+        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, load_factor; positive_ratio=ratio)
+        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6, simple_qps / 1e6)
     end
 end
 
@@ -245,9 +248,11 @@ function run_comparison_benchmark(; use_cuda::Bool=false, use_metal::Bool=false)
     end
 
     if use_cuda
-        double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor)
-        hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor)
+        double_qps = benchmark_cuda_query(cu_double_builder,  n_entries, n_queries, load_factor)
+        hive_qps   = benchmark_cuda_query(cu_hive_builder,    n_entries, n_queries, load_factor)
+        simple_qps = benchmark_cuda_query(cu_simple_builder,  n_entries, n_queries, load_factor)
         @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx)\n", double_qps / 1e6, double_qps / dict_qps)
         @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx)\n", hive_qps   / 1e6, hive_qps   / dict_qps)
+        @printf("CUDA CuSimpleHT:     %8.2f M queries/sec  (%.1fx)\n", simple_qps / 1e6, simple_qps / dict_qps)
     end
 end

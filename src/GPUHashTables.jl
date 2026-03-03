@@ -67,6 +67,18 @@ include("HiveHT/metal/kernels.jl")
 include("HiveHT/metal/table.jl")
 
 # =============================================================================
+# SimpleHT Implementation
+# =============================================================================
+
+# CPU SimpleHT
+include("SimpleHT/cpu/table.jl")
+include("SimpleHT/cpu/operations.jl")
+
+# CUDA SimpleHT
+include("SimpleHT/cuda/kernels.jl")
+include("SimpleHT/cuda/table.jl")
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -77,7 +89,10 @@ export CPUDoubleHT, CuDoubleHT, MtlDoubleHT
 export CPUHiveHT, CuHiveHT, MtlHiveHT
 export HiveBucket
 
-# Operations (shared by both table types)
+# SimpleHT types
+export CPUSimpleHT, CuSimpleHT
+
+# Operations (shared by all table types)
 export query, query!
 export upsert!
 
