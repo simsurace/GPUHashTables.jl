@@ -21,6 +21,9 @@ const UPSERT_FAILED = UInt8(0)
 const UPSERT_INSERTED = UInt8(1)
 const UPSERT_UPDATED = UInt8(2)
 
+# Base.Dict compatibility (for benchmarking)
+include("dict-compat.jl")
+
 # =============================================================================
 # DoubleHT Implementation
 # =============================================================================

@@ -47,60 +47,60 @@ found, results = query(gpu_table, query_keys)
 ## Benchmarks
 
 Metal benchmarks are with Apple M3 Pro, CUDA benchmarks are with an RTX 2070.
-For comparison, on an Apple M3 Pro, Julia `Base.Dict` achieves 50 M queries / second on a
-dictionary with 10 M entries.
+All benchmarks use the allocating `query(table, cpu_keys)` interface, which includes
+CPU↔GPU transfer overhead for GPU tables.
 
 ### Query Throughput
 
 Tested with 10M entries table, 10M query batch, load factor 0.7:
 
-| Metric                            | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
-|-----------------------------------|---------------|--------------|-------------|------------|
-| Positive queries (all keys exist) | 97.6 M        | 651 M        | 107 M       | 29.6 M     |
-| Negative queries (no keys exist)  | 98.5 M        | 636 M        | 109 M       | 31.7 M     |
-| Mixed queries (50/50)             | 98.3 M        | 660 M        | 108 M       | 32.0 M     |
+| Metric                            | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|-----------------------------------|-------------|---------------|--------------|-------------|------------|
+| Positive queries (all keys exist) | 50.2 M      | 75.5 M        | TODO         | 70.3 M      | TODO       |
+| Negative queries (no keys exist)  | 36.7 M      | 77.7 M        | TODO         | 78.1 M      | TODO       |
+| Mixed queries (50/50)             | 21.2 M      | 76.4 M        | TODO         | 78.6 M      | TODO       |
 
 ### Query Scaling
 
 **Scaling with table size** (10M queries, load factor 0.7):
 
-| Table Size | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
-|------------|---------------|--------------|-------------|------------|
-| 100K       | 98.0 M        | 1110 M       | 108 M       | 33.0 M     |
-| 1M         | 98.1 M        | 820 M        | 107 M       | 30.8 M     |
-| 10M        | 97.8 M        | 804 M        | 108 M       | 31.4 M     |
-| 50M        | 97.5 M        | 800 M        | 107 M       | 32.5 M     |
+| Table Size | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|------------|-------------|---------------|--------------|-------------|------------|
+| 100K       | 179 M       | 82.7 M        | TODO         | 85.5 M      | TODO       |
+| 1M         | 113 M       | 74.0 M        | TODO         | 85.0 M      | TODO       |
+| 10M        | 49.4 M      | 70.6 M        | TODO         | 81.3 M      | TODO       |
+| 50M        | 51.4 M      | 78.8 M        | TODO         | 50.4 M      | TODO       |
 
 **Scaling with load factor** (10M entries, 10M queries):
 
-| Load Factor | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
-|-------------|---------------|--------------|-------------|------------|
-| 0.5         | 97.0 M        | 855 M        | 107 M       | 31.7 M     |
-| 0.6         | 98.0 M        | 837 M        | 108 M       | 32.4 M     |
-| 0.7         | 97.7 M        | 644 M        | 108 M       | 32.5 M     |
-| 0.8         | 98.0 M        | 748 M        | 108 M       | 31.3 M     |
-| 0.9         | 98.0 M        | 658 M        | 107 M       | 30.9 M     |
+| Load Factor | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|-------------|-------------|---------------|--------------|-------------|------------|
+| 0.5         | 51.0 M      | 70.8 M        | TODO         | 82.7 M      | TODO       |
+| 0.6         | 49.0 M      | 69.8 M        | TODO         | 79.2 M      | TODO       |
+| 0.7         | 49.0 M      | 70.7 M        | TODO         | 83.1 M      | TODO       |
+| 0.8         | 48.0 M      | 69.4 M        | TODO         | 79.1 M      | TODO       |
+| 0.9         | 46.6 M      | 59.4 M        | TODO         | 82.0 M      | TODO       |
 
 **Scaling with query batch size** (10M entries, load_factor=0.7):
 
-| Batch Size | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
-|------------|---------------|--------------|-------------|------------|
-| 10K        | 34.3 M        | 464 M        | 29.5 M      | 30.6 M     |
-| 100K       | 99.7 M        | 742 M        | 109 M       | 31.7 M     |
-| 1M         | 107 M         | 606 M        | 119 M       | 29.8 M     |
-| 10M        | 98.1 M        | 773 M        | 108 M       | 29.4 M     |
+| Batch Size | `Base.Dict` | `MtlDoubleHT` | `CuDoubleHT` | `MtlHiveHT` | `CuHiveHT` |
+|------------|-------------|---------------|--------------|-------------|------------|
+| 10K        | 150 M       | 14.3 M        | TODO         | 11.6 M      | TODO       |
+| 100K       | 55.2 M      | 57.3 M        | TODO         | 49.5 M      | TODO       |
+| 1M         | 39.9 M      | 86.2 M        | TODO         | 81.4 M      | TODO       |
+| 10M        | 51.1 M      | 82.0 M        | TODO         | 75.1 M      | TODO       |
 
 **GPU vs CPU comparison** (1M entries, 1M queries):
 
 | Hash Table              | Queries/Sec | Speedup |
 |-------------------------|-------------|---------|
-| `Base.Dict` (M3 Pro)    | 141 M       | 1.0x    |
-| `CPUDoubleHT` (M3 Pro)  | 41.0 M      | 0.3x    |
-| `MtlDoubleHT` (M3 Pro)  | 107 M       | 0.8x    |
-| `CuDoubleHT` (RTX 2070) | 878 M       | 6.2x    |
-| `CPUHiveHT` (M3 Pro)    | 29.4 M      | 0.2x    |
-| `MtlHiveHT` (M3 Pro)    | 119 M       | 0.8x    |
-| `CuHiveHT` (RTX 2070)   | 26.7 M      | 0.2x    |
+| `Base.Dict` (M3 Pro)    | 116 M       | 1.0x    |
+| `CPUDoubleHT` (M3 Pro)  | 40.6 M      | 0.4x    |
+| `CPUHiveHT` (M3 Pro)    | 29.2 M      | 0.3x    |
+| `MtlDoubleHT` (M3 Pro)  | 87.9 M      | 0.8x    |
+| `MtlHiveHT` (M3 Pro)    | 84.8 M      | 0.7x    |
+| `CuDoubleHT` (RTX 2070) | TODO        | TODO    |
+| `CuHiveHT` (RTX 2070)   | TODO        | TODO    |
 
 ### Running Benchmarks
 

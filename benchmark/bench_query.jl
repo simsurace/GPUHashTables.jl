@@ -1,4 +1,7 @@
 # Query throughput benchmarks
+#
+# All benchmarks use the allocating query(table, cpu_keys) interface,
+# which includes CPU↔GPU transfer overhead for GPU tables.
 
 # =============================================================================
 # Generic benchmark core
@@ -7,9 +10,8 @@
 """
     benchmark_cuda_query(build_fn, n_entries, n_queries, load_factor; n_iterations, positive_ratio)
 
-Benchmark CUDA GPU query throughput for any table type.
-
-`build_fn(keys, vals, load_factor)` must return a GPU table that supports `query!`.
+Benchmark CUDA GPU query throughput using `query(table, cpu_keys)`.
+Includes CPU→GPU key transfer and GPU→CPU result transfer.
 Returns queries per second.
 """
 function benchmark_cuda_query(
@@ -32,13 +34,9 @@ function benchmark_cuda_query(
     negative_keys = rand(UInt32(2^31):(typemax(UInt32) - UInt32(1)), n_negative)
     query_keys = Vector{UInt32}(shuffle(vcat(positive_keys, negative_keys)))
 
-    gpu_keys = CuVector(query_keys)
-    results = CUDA.zeros(UInt32, n_queries)
-    found = CUDA.zeros(Bool, n_queries)
-
     # Warmup
     for _ in 1:3
-        query!(results, found, gpu_table, gpu_keys)
+        query(gpu_table, query_keys)
     end
     CUDA.synchronize()
 
@@ -48,7 +46,7 @@ function benchmark_cuda_query(
     CUDA.@sync begin
         t_start = time_ns()
         for _ in 1:n_iterations
-            query!(results, found, gpu_table, gpu_keys)
+            query(gpu_table, query_keys)
         end
         t_end = time_ns()
     end
@@ -60,9 +58,8 @@ end
 """
     benchmark_metal_query(build_fn, n_entries, n_queries, load_factor; n_iterations, positive_ratio)
 
-Benchmark Metal GPU query throughput for any table type.
-
-`build_fn(keys, vals, load_factor)` must return a GPU table that supports `query!`.
+Benchmark Metal GPU query throughput using `query(table, cpu_keys)`.
+Includes CPU→GPU key transfer and GPU→CPU result transfer.
 Returns queries per second.
 """
 function benchmark_metal_query(
@@ -85,20 +82,16 @@ function benchmark_metal_query(
     negative_keys = rand(UInt32(2^31):(typemax(UInt32) - UInt32(1)), n_negative)
     query_keys = Vector{UInt32}(shuffle(vcat(positive_keys, negative_keys)))
 
-    metal_keys = MtlVector(query_keys)
-    results = Metal.zeros(UInt32, n_queries)
-    found = Metal.zeros(Bool, n_queries)
-
     # Warmup
     for _ in 1:3
-        query!(results, found, metal_table, metal_keys)
+        query(metal_table, query_keys)
     end
     Metal.synchronize()
 
     # Benchmark
     t_start = time_ns()
     for _ in 1:n_iterations
-        query!(results, found, metal_table, metal_keys)
+        query(metal_table, query_keys)
     end
     Metal.synchronize()
     t_end = time_ns()
@@ -110,9 +103,7 @@ end
 """
     benchmark_cpu_query(build_fn, n_entries, n_queries, load_factor; n_iterations)
 
-Benchmark CPU query throughput for any table type.
-
-`build_fn(keys, vals, load_factor)` must return a CPU table that supports `query!`.
+Benchmark CPU query throughput using `query(table, keys)`.
 Returns queries per second.
 """
 function benchmark_cpu_query(
@@ -120,7 +111,8 @@ function benchmark_cpu_query(
     n_entries::Int,
     n_queries::Int,
     load_factor::Float64;
-    n_iterations::Int = 10
+    n_iterations::Int = 10,
+    positive_ratio::Float64 = 1.0
 )
     Random.seed!(42)
 
@@ -128,17 +120,19 @@ function benchmark_cpu_query(
     vals = rand(UInt32, n_entries)
     cpu_table = build_fn(keys, vals, load_factor)
 
-    query_keys = keys[rand(1:n_entries, n_queries)]
-    results = Vector{UInt32}(undef, n_queries)
-    found = Vector{Bool}(undef, n_queries)
+    n_positive = round(Int, n_queries * positive_ratio)
+    n_negative = n_queries - n_positive
+    positive_keys = keys[rand(1:n_entries, n_positive)]
+    negative_keys = rand(UInt32(2^31):(typemax(UInt32) - UInt32(1)), n_negative)
+    query_keys = Vector{UInt32}(shuffle(vcat(positive_keys, negative_keys)))
 
     # Warmup
-    query!(results, found, cpu_table, query_keys)
+    query(cpu_table, query_keys)
 
     # Benchmark
     t_start = time_ns()
     for _ in 1:n_iterations
-        query!(results, found, cpu_table, query_keys)
+        query(cpu_table, query_keys)
     end
     t_end = time_ns()
 
@@ -149,6 +143,8 @@ end
 # =============================================================================
 # Table builders
 # =============================================================================
+
+dict_builder(keys, vals, lf) = Dict(zip(keys, vals))
 
 cpu_double_builder(keys, vals, lf) = CPUDoubleHT(keys, vals; load_factor=lf)
 cpu_hive_builder(keys, vals, lf)   = CPUHiveHT(keys, vals; load_factor=lf)
@@ -177,17 +173,18 @@ function run_cuda_query_benchmarks()
     println("Load factor: $load_factor")
     println()
 
-    @printf("%-28s  %14s  %14s\n", "Query Type", "CuDoubleHT", "CuHiveHT")
-    @printf("%-28s  %14s  %14s\n", "-"^26, "-"^12, "-"^12)
+    @printf("%-28s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "CuDoubleHT", "CuHiveHT")
+    @printf("%-28s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12)
 
     for (label, ratio) in [
         ("Positive (all keys exist)", 1.0),
         ("Negative (no keys exist)",  0.0),
         ("Mixed (50/50)",             0.5),
     ]
+        dict_qps   = benchmark_cpu_query(dict_builder,     n_entries, n_queries, load_factor; positive_ratio=ratio)
         double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor; positive_ratio=ratio)
         hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor; positive_ratio=ratio)
-        @printf("%-28s  %11.2f M  %11.2f M\n", label, double_qps / 1e6, hive_qps / 1e6)
+        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
     end
 end
 
@@ -205,17 +202,18 @@ function run_metal_query_benchmarks()
     println("Load factor: $load_factor")
     println()
 
-    @printf("%-28s  %14s  %14s\n", "Query Type", "MtlDoubleHT", "MtlHiveHT")
-    @printf("%-28s  %14s  %14s\n", "-"^26, "-"^12, "-"^12)
+    @printf("%-28s  %14s  %14s  %14s\n", "Query Type", "Base.Dict", "MtlDoubleHT", "MtlHiveHT")
+    @printf("%-28s  %14s  %14s  %14s\n", "-"^26, "-"^12, "-"^12, "-"^12)
 
     for (label, ratio) in [
         ("Positive (all keys exist)", 1.0),
         ("Negative (no keys exist)",  0.0),
         ("Mixed (50/50)",             0.5),
     ]
+        dict_qps   = benchmark_cpu_query(dict_builder,          n_entries, n_queries, load_factor; positive_ratio=ratio)
         double_qps = benchmark_metal_query(mtl_double_builder, n_entries, n_queries, load_factor; positive_ratio=ratio)
         hive_qps   = benchmark_metal_query(mtl_hive_builder,   n_entries, n_queries, load_factor; positive_ratio=ratio)
-        @printf("%-28s  %11.2f M  %11.2f M\n", label, double_qps / 1e6, hive_qps / 1e6)
+        @printf("%-28s  %11.2f M  %11.2f M  %11.2f M\n", label, dict_qps / 1e6, double_qps / 1e6, hive_qps / 1e6)
     end
 end
 
@@ -232,22 +230,24 @@ function run_comparison_benchmark(; use_cuda::Bool=false, use_metal::Bool=false)
     println("Query batch: $(n_queries ÷ 1_000_000)M queries")
     println()
 
+    dict_qps       = benchmark_cpu_query(dict_builder,       n_entries, n_queries, load_factor)
     cpu_double_qps = benchmark_cpu_query(cpu_double_builder, n_entries, n_queries, load_factor)
     cpu_hive_qps   = benchmark_cpu_query(cpu_hive_builder,   n_entries, n_queries, load_factor)
-    @printf("CPU (DoubleHT):      %8.2f M queries/sec\n", cpu_double_qps / 1e6)
-    @printf("CPU (HiveHT):        %8.2f M queries/sec\n", cpu_hive_qps / 1e6)
+    @printf("Base.Dict:           %8.2f M queries/sec\n", dict_qps / 1e6)
+    @printf("CPU (DoubleHT):      %8.2f M queries/sec  (%.1fx)\n", cpu_double_qps / 1e6, cpu_double_qps / dict_qps)
+    @printf("CPU (HiveHT):        %8.2f M queries/sec  (%.1fx)\n", cpu_hive_qps / 1e6, cpu_hive_qps / dict_qps)
 
     if use_metal
         double_qps = benchmark_metal_query(mtl_double_builder, n_entries, n_queries, load_factor)
         hive_qps   = benchmark_metal_query(mtl_hive_builder,   n_entries, n_queries, load_factor)
-        @printf("Metal MtlDoubleHT:   %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_double_qps)
-        @printf("Metal MtlHiveHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_hive_qps)
+        @printf("Metal MtlDoubleHT:   %8.2f M queries/sec  (%.1fx)\n", double_qps / 1e6, double_qps / dict_qps)
+        @printf("Metal MtlHiveHT:     %8.2f M queries/sec  (%.1fx)\n", hive_qps   / 1e6, hive_qps   / dict_qps)
     end
 
     if use_cuda
         double_qps = benchmark_cuda_query(cu_double_builder, n_entries, n_queries, load_factor)
         hive_qps   = benchmark_cuda_query(cu_hive_builder,   n_entries, n_queries, load_factor)
-        @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx vs CPU)\n", double_qps / 1e6, double_qps / cpu_double_qps)
-        @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx vs CPU)\n", hive_qps   / 1e6, hive_qps   / cpu_hive_qps)
+        @printf("CUDA CuDoubleHT:     %8.2f M queries/sec  (%.1fx)\n", double_qps / 1e6, double_qps / dict_qps)
+        @printf("CUDA CuHiveHT:       %8.2f M queries/sec  (%.1fx)\n", hive_qps   / 1e6, hive_qps   / dict_qps)
     end
 end
