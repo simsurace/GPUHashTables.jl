@@ -16,10 +16,16 @@ Pkg.add("GPUHashTables")
 You need either a CUDA or Metal-capable GPU to use this package meaningfully. You can query
 the presence of either with `has_cuda()` and `has_metal()` after loading the package.
 
-## Implemented hash table designs
+## Implementation status
+
+### Hash table designs
 
 - DoubleHT from the [warpSpeed library](https://github.com/saltsystemslab/warpSpeed), see [arXiv paper](https://arxiv.org/pdf/2509.16407): `CPUDoubleHT`, `CuDoubleHT`, `MtlDoubleHT`.
-- Hive Hash Table, c.f. [arXiv paper](https://arxiv.org/pdf/2510.15095), `CPUHiveHT`, `CuHiveHT`, `MtlHiveHT`.
+- Hive Hash Table, c.f. [arXiv paper](https://arxiv.org/pdf/2510.15095): `CPUHiveHT`, `CuHiveHT`, `MtlHiveHT`.
+
+### Features
+
+- Batch querying: `query`
 
 ## Usage
 
