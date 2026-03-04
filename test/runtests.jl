@@ -9,12 +9,17 @@ using Metal
     include("test_hash.jl")
     include("test_double_cpu.jl")
     include("test_simple_cpu.jl")
+    include("test_hive_cpu.jl")
+
+    include("gpu_query_tests.jl")
 
     if CUDA.functional()
         @testset "CUDA" begin
-            include("test_double_cuda.jl")
-            include("test_hive_cuda.jl")
-            include("test_simple_cuda.jl")
+            for GpuT in (CuDoubleHT, CuHiveHT, CuSimpleHT)
+                @testset "$GpuT" begin
+                    run_gpu_query_tests(GpuT)
+                end
+            end
         end
     else
         @warn "CUDA not available - skipping CUDA GPU tests"
@@ -23,9 +28,12 @@ using Metal
     if Metal.functional()
         using Metal: MtlVector
         @testset "Metal" begin
-            include("test_double_metal.jl")
+            for GpuT in (MtlDoubleHT, MtlHiveHT, MtlSimpleHT)
+                @testset "$GpuT" begin
+                    run_gpu_query_tests(GpuT)
+                end
+            end
             include("test_hive_metal.jl")
-            include("test_simple_metal.jl")
         end
     else
         @warn "Metal not available - skipping Metal GPU tests"
